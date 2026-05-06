@@ -1,0 +1,50 @@
+name: my_app
+description: Calculadora de abonado para acuarios plantados - Fertiliza Chile
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "lib/assets/icon/icon.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - lib/assets/productos/Nitrogeno.jpeg
+    - lib/assets/productos/Fosfato.jpeg
+    - lib/assets/productos/Potacio.jpeg
+    - lib/assets/productos/Hierro mas micronutrientes.jpeg
+    - lib/assets/productos/hierro quelatado.jpeg
+    - lib/assets/productos/micronutrientes.jpeg
+    - lib/assets/productos/potacio mas micronutrientes.jpeg
+    - lib/assets/productos/potacio mas micronutrientes 2.jpeg
+    - lib/assets/productos/potenciador de crecimiento.jpeg
+    - lib/assets/productos/potenciador de crecimiento 2.jpeg
+    - lib/assets/productos/potenciador de crecimiento 3.jpeg
+    - lib/assets/productos/potenciador de crecimiento 4.jpeg
+    - lib/assets/productos/acondicionador multivitaminico.jpeg
+    - lib/assets/productos/analisis 1 .jpeg
+    - lib/assets/productos/analisis 2.jpeg
+    - lib/assets/productos/anti algas carbono co2.jpeg
+    - lib/assets/productos/anticloro.jpeg
+    - lib/assets/productos/bacterias vivas.jpeg
+    - lib/assets/productos/bacterias vivas 2.jpeg
+    - lib/assets/productos/material filtrante.jpeg
+    - lib/assets/logotipo/fertilizalogotipo.png
