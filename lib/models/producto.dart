@@ -185,7 +185,7 @@ final List<Producto> productosFerti = [
     id: 'antialgas_h2o2',
     nombre: 'Anti-Algas H₂O₂',
     categoria: 'Tratamiento',
-    descripcionCorta: 'Peróxido 5% — elimina algas oxidando',
+    descripcionCorta: 'elimina algas oxidando',
     mlPor100L: 20.0,
     aportePor2ml: 1.0,
     objetivoMgL: 1.0,
@@ -200,6 +200,31 @@ final List<Producto> productosFerti = [
     mlPorModalidad: {
       'Dosis inicial': 20.0,
       'Dosis máxima': 40.0,
+    },
+  ),
+
+  const Producto(
+    id: 'antialgas_co2',
+    nombre: 'Anti-Algas+ Carbono (CO₂)',
+    categoria: 'Tratamiento',
+    descripcionCorta: ' antialgas y fuente de carbono',
+    mlPor100L: 5.0,
+    aportePor2ml: 2.0,
+    objetivoMgL: 2.0,
+    unidadAporte: 'ml por aplicación',
+    color: '#27AE60',
+    consejo:
+        'Eliminación de algas: retirar manualmente la mayoría, apagar filtro '
+        '15-20 min y aplicar con jeringa directo en zona afectada. '
+        'Máx. 5ml/100L. Apagar luz o aplicar de noche. Uso diario por 7 días. '
+        'Carbono: 2ml/100L antes de encender luces, uso diario. '
+        'Uso restringido en musgos y tapizantes (puede quemarlos). '
+        'No exceder la dosis recomendada.',
+    tieneObjetivo: false,
+    modalidades: ['Eliminación de algas', 'Aporte de Carbono'],
+    mlPorModalidad: {
+      'Eliminación de algas': 5.0,
+      'Aporte de Carbono': 2.0,
     },
   ),
 

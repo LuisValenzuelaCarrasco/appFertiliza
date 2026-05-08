@@ -31,28 +31,58 @@ class _MedicionesScreenState extends State<MedicionesScreen> {
     });
   }
 
-  Future<void> _confirmarLimpiar() async {
-    final ok = await showDialog<bool>(
+  Future<void> _confirmarLimpiarHoy() async {
+    final hoy = DateTime.now();
+    final registrosHoy = _historial
+        .where(
+          (m) =>
+              m.fecha.year == hoy.year &&
+              m.fecha.month == hoy.month &&
+              m.fecha.day == hoy.day,
+        )
+        .toList();
+
+    if (registrosHoy.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay registros de hoy')),
+      );
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Borrar historial'),
-        content: const Text('¿Eliminar todas las mediciones guardadas?'),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Borrar registros de hoy'),
+        content: Text(
+          'Se eliminarán ${registrosHoy.length} '
+          'registro${registrosHoy.length > 1 ? 's' : ''} de hoy. '
+          '¿Continuar?',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Borrar todo',
-                  style: TextStyle(color: Colors.red))),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Borrar', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
-    if (ok == true) {
-      await HistorialService.limpiar();
-      await _cargar();
-      setState(() => _diaSeleccionado = null);
-    }
+
+    if (confirmar != true) return;
+
+    await HistorialService.borrarPorFecha(hoy);
+
+    setState(() {
+      _historial.removeWhere(
+        (m) =>
+            m.fecha.year == hoy.year &&
+            m.fecha.month == hoy.month &&
+            m.fecha.day == hoy.day,
+      );
+    });
   }
 
   void _mostrarDialogoEvento(DateTime dia) {
@@ -151,8 +181,8 @@ class _MedicionesScreenState extends State<MedicionesScreen> {
           if (_historial.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep, color: Colors.white),
-              tooltip: 'Borrar todo',
-              onPressed: _confirmarLimpiar,
+              tooltip: 'Borrar registros de hoy',
+              onPressed: _confirmarLimpiarHoy,
             ),
         ],
       ),
@@ -649,6 +679,13 @@ class _TarjetaEvento extends StatelessWidget {
                   Text('  de ${m.litros.toStringAsFixed(0)} L',
                       style:
                           TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  // ── NUEVO ──────────────────────────────────────
+                  Text(
+                      '  = ${(m.litros * m.porcentajeCambioAgua! / 100).toStringAsFixed(0)} L cambiados',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.blue.shade400)),
                 ],
               ),
             ],
@@ -783,7 +820,9 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom +
+            16, // margen extra
         left: 20,
         right: 20,
         top: 24,
@@ -934,7 +973,9 @@ class _DialogoNuevoEventoState extends State<_DialogoNuevoEvento> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom +
+            16, // margen extra
         left: 20,
         right: 20,
         top: 24,

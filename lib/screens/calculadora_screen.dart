@@ -47,8 +47,12 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   @override
   void dispose() {
     _litrosController.dispose();
-    for (final c in _nivelControllers.values) c.dispose();
-    for (final c in _objetivoControllers.values) c.dispose();
+    for (final c in _nivelControllers.values) {
+      c.dispose();
+    }
+    for (final c in _objetivoControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 

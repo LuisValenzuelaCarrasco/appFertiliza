@@ -45,4 +45,22 @@ class HistorialService {
       await prefs.setStringList(_key, lista);
     }
   }
+
+  static Future<void> borrarPorFecha(DateTime fecha) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_key) ?? [];
+
+    final filtrados = raw.where((e) {
+      try {
+        final m = Medicion.fromJson(jsonDecode(e));
+        return !(m.fecha.year == fecha.year &&
+            m.fecha.month == fecha.month &&
+            m.fecha.day == fecha.day);
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+
+    await prefs.setStringList(_key, filtrados);
+  }
 }

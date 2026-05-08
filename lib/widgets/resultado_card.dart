@@ -184,7 +184,7 @@ class ResultadoCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Objetivo: ${_objetivo.toStringAsFixed(_objetivo < 1 ? 1 : 0)} mg/L',
+                      _objetivo.toStringAsFixed(_objetivo % 1 == 0 ? 0 : 1),
                       style:
                           TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
@@ -329,7 +329,7 @@ class ResultadoCard extends StatelessWidget {
                   _DosisRow(
                     label: 'Para alcanzar objetivo',
                     sublabel:
-                        'De ${nivelActual.toStringAsFixed(2)} → ${_objetivo.toStringAsFixed(_objetivo < 1 ? 1 : 0)} mg/L',
+                        'De ${nivelActual.toStringAsFixed(2)} → ${_objetivo.toStringAsFixed(_objetivo % 1 == 0 ? 0 : 1)} mg/L',
                     valor: mlNecesarios,
                     color: Colors.red.shade700,
                     icono: Icons.arrow_upward,
