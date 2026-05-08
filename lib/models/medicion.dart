@@ -1,5 +1,5 @@
 // models/medicion.dart
-enum TipoEvento { abono, cambioAgua, poda }
+enum TipoEvento { abono, cambioAgua, poda, nota }
 
 class Medicion {
   final DateTime fecha;
@@ -55,6 +55,6 @@ class Medicion {
         porcentajeCambioAgua: json['porcentajeCambioAgua'] != null
             ? (json['porcentajeCambioAgua'] as num).toDouble()
             : null,
-        notasPoda: json['notasPoda'],
+        notasPoda: json['notasPoda'] as String?,
       );
 }

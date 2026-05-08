@@ -41,16 +41,14 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   };
 
   final Set<String> _productosSeleccionados = {};
+  final Set<String> _productosAdicionalesSeleccionados = {};
+  final Map<String, String> _modalidadesSeleccionadas = {};
 
   @override
   void dispose() {
     _litrosController.dispose();
-    for (final c in _nivelControllers.values) {
-      c.dispose();
-    }
-    for (final c in _objetivoControllers.values) {
-      c.dispose();
-    }
+    for (final c in _nivelControllers.values) c.dispose();
+    for (final c in _objetivoControllers.values) c.dispose();
     super.dispose();
   }
 
@@ -58,6 +56,11 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     final ingresado =
         double.tryParse(_objetivoControllers[p.id]?.text ?? '') ?? 0;
     return ingresado > 0 ? ingresado : p.objetivoMgL;
+  }
+
+  String _modalidadActual(Producto p) {
+    return _modalidadesSeleccionadas[p.id] ??
+        (p.modalidades.isNotEmpty ? p.modalidades.first : '');
   }
 
   Future<void> _calcular() async {
@@ -70,7 +73,8 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       return;
     }
 
-    if (_productosSeleccionados.isEmpty) {
+    if (_productosSeleccionados.isEmpty &&
+        _productosAdicionalesSeleccionados.isEmpty) {
       _mostrarError('Selecciona al menos un producto');
       return;
     }
@@ -87,18 +91,27 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     final nivelesActuales = <String, double>{};
     final objetivosGuardados = <String, double>{};
 
+    // ── Productos con testeo (NPK / hierros) ──────────────
     for (final p in productosTesteables
         .where((p) => _productosSeleccionados.contains(p.id))) {
       final nivelActual =
           double.tryParse(_nivelControllers[p.id]?.text ?? '0') ?? 0;
       final objetivo = _objetivoEfectivo(p);
-
       final dosis =
           p.calcularMlNecesarios(nivelActual, litros, objetivo: objetivo);
-
       niveles[p.nombre] = dosis;
       nivelesActuales[p.nombre] = nivelActual;
       objetivosGuardados[p.nombre] = objetivo;
+    }
+
+    // ── Productos adicionales (dosis directa) ─────────────
+    for (final p in productosAdicionales
+        .where((p) => _productosAdicionalesSeleccionados.contains(p.id))) {
+      final modalidad = _modalidadActual(p);
+      final dosis = p.calcularDosisPorModalidad(litros, modalidad);
+      final clave =
+          p.modalidades.length > 1 ? '${p.nombre} ($modalidad)' : p.nombre;
+      niveles[clave] = dosis;
     }
 
     try {
@@ -136,6 +149,26 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     );
   }
 
+  Color _colorDesdeHex(String hex) {
+    final h = hex.replaceAll('#', '');
+    return Color(int.parse('FF$h', radix: 16));
+  }
+
+  IconData _iconoPorCategoria(String categoria) {
+    switch (categoria) {
+      case 'Tratamiento':
+        return Icons.bug_report_outlined;
+      case 'Acondicionador':
+        return Icons.water_drop_outlined;
+      case 'Biológico':
+        return Icons.science_outlined;
+      case 'Estimulante': // ← nuevo
+        return Icons.energy_savings_leaf_outlined;
+      default:
+        return Icons.local_florist_outlined;
+    }
+  }
+
   Widget _miniStat(String label, String value) {
     return Column(
       children: [
@@ -154,6 +187,8 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final totalSeleccionados = _productosSeleccionados.length +
+        _productosAdicionalesSeleccionados.length;
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -164,7 +199,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 🔥 HEADER PRO
+          // ── HEADER ───────────────────────────────────────────
           Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
@@ -190,7 +225,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
             ),
           ),
 
-          // 💧 LITROS
+          // ── LITROS ───────────────────────────────────────────
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -213,20 +248,19 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
 
           const SizedBox(height: 12),
 
-          // 🧪 PRODUCTOS
+          // ── PRODUCTOS NPK / HIERROS ───────────────────────────
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Row(
                     children: [
                       Icon(Icons.science_outlined),
                       SizedBox(width: 8),
-                      Text(
-                        'Productos',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      Text('Nutrientes (con testeo)',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -243,6 +277,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                       TextButton(
                         onPressed: () => setState(() {
                           _productosSeleccionados.clear();
+                          _mostrarResultados = false;
                         }),
                         child: const Text('Limpiar'),
                       ),
@@ -273,7 +308,72 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
 
           const SizedBox(height: 12),
 
-          // 🚀 BOTÓN
+          // ── OTROS PRODUCTOS ───────────────────────────────────
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.medication_liquid_outlined),
+                      SizedBox(width: 8),
+                      Text('Otros productos',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'La dosis se calcula automáticamente según los litros',
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 10),
+                  ...productosAdicionales.map((p) {
+                    final color = _colorDesdeHex(p.color);
+                    return CheckboxListTile(
+                      value: _productosAdicionalesSeleccionados.contains(p.id),
+                      onChanged: (v) => setState(() {
+                        if (v == true) {
+                          _productosAdicionalesSeleccionados.add(p.id);
+                        } else {
+                          _productosAdicionalesSeleccionados.remove(p.id);
+                        }
+                        _mostrarResultados = false;
+                      }),
+                      title: Row(
+                        children: [
+                          Icon(_iconoPorCategoria(p.categoria),
+                              color: color, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(p.nombre,
+                                    style: const TextStyle(fontSize: 13)),
+                                Text(p.descripcionCorta,
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: cs.onSurfaceVariant)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      activeColor: color,
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── BOTÓN CALCULAR ────────────────────────────────────
           ElevatedButton.icon(
             onPressed: _isLoading ? null : _calcular,
             icon: _isLoading
@@ -288,7 +388,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
 
           const SizedBox(height: 12),
 
-          // 📊 RESUMEN
+          // ── RESUMEN ───────────────────────────────────────────
           if (_mostrarResultados)
             Card(
               color: cs.primary,
@@ -297,8 +397,8 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _miniStat('Litros', '$_litros L'),
-                    _miniStat('Productos', '${_productosSeleccionados.length}'),
+                    _miniStat('Litros', '${_litros.toStringAsFixed(0)} L'),
+                    _miniStat('Productos', '$totalSeleccionados'),
                     _miniStat('Estado', 'OK'),
                   ],
                 ),
@@ -307,7 +407,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
 
           const SizedBox(height: 10),
 
-          // 📈 RESULTADOS
+          // ── RESULTADOS NPK / HIERROS ──────────────────────────
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 400),
             child: _mostrarResultados
@@ -319,7 +419,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                               _nivelControllers[p.id]?.text ?? '0') ??
                           0;
                       final objetivo = _objetivoEfectivo(p);
-
                       return ResultadoCard(
                         producto: p,
                         litros: _litros,
@@ -331,8 +430,159 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                 : const SizedBox(),
           ),
 
+          // ── RESULTADOS OTROS PRODUCTOS ────────────────────────
+          if (_mostrarResultados)
+            ...productosAdicionales
+                .where((p) => _productosAdicionalesSeleccionados.contains(p.id))
+                .map((p) => _TarjetaProductoAdicional(
+                      producto: p,
+                      litros: _litros,
+                      modalidad: _modalidadActual(p),
+                      onModalidadChanged: (m) =>
+                          setState(() => _modalidadesSeleccionadas[p.id] = m),
+                    )),
+
           const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+}
+
+// ── Tarjeta resultado producto adicional ──────────────────────────────────────
+
+class _TarjetaProductoAdicional extends StatelessWidget {
+  final Producto producto;
+  final double litros;
+  final String modalidad;
+  final ValueChanged<String> onModalidadChanged;
+
+  const _TarjetaProductoAdicional({
+    required this.producto,
+    required this.litros,
+    required this.modalidad,
+    required this.onModalidadChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color =
+        Color(int.parse('FF${producto.color.replaceAll('#', '')}', radix: 16));
+    final dosis = producto.calcularDosisPorModalidad(litros, modalidad);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Encabezado ──────────────────────────────
+            Row(
+              children: [
+                Icon(Icons.medication_liquid_outlined, color: color, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(producto.nombre,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: color,
+                              fontSize: 15)),
+                      Text(producto.descripcionCorta,
+                          style: TextStyle(
+                              fontSize: 11, color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const Divider(height: 16),
+
+            // ── Selector modalidad ───────────────────────
+            if (producto.modalidades.length > 1) ...[
+              Text('Modo de uso',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: producto.modalidades.map((m) {
+                  final sel = m == modalidad;
+                  return GestureDetector(
+                    onTap: () => onModalidadChanged(m),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? color.withValues(alpha: 0.15)
+                            : cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: sel ? color : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(m,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight:
+                                sel ? FontWeight.w700 : FontWeight.normal,
+                            color: sel ? color : cs.onSurfaceVariant,
+                          )),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // ── Resultado ────────────────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(producto.consejo,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant,
+                          height: 1.4)),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text('${dosis.toStringAsFixed(1)} ml',
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: color)),
+                      Text('para ${litros.toStringAsFixed(0)} L',
+                          style: TextStyle(
+                              fontSize: 10, color: cs.onSurfaceVariant)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

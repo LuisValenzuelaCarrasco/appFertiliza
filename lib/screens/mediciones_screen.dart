@@ -93,6 +93,8 @@ class _MedicionesScreenState extends State<MedicionesScreen> {
       _eventosDelDia(dia, TipoEvento.cambioAgua).isNotEmpty;
   bool _tienePoda(DateTime dia) =>
       _eventosDelDia(dia, TipoEvento.poda).isNotEmpty;
+  bool _tieneNota(DateTime dia) =>
+      _eventosDelDia(dia, TipoEvento.nota).isNotEmpty;
 
   List<Medicion> _medicionesDelDia(DateTime dia) => _historial
       .where((m) =>
@@ -229,6 +231,7 @@ class _MedicionesScreenState extends State<MedicionesScreen> {
                           final abono = _tieneAbono(dia);
                           final agua = _tieneCambioAgua(dia);
                           final poda = _tienePoda(dia);
+                          final nota = _tieneNota(dia);
                           final esHoy = dia.year == DateTime.now().year &&
                               dia.month == DateTime.now().month &&
                               dia.day == DateTime.now().day;
@@ -259,9 +262,10 @@ class _MedicionesScreenState extends State<MedicionesScreen> {
                                   Text('${dia.day}',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        fontWeight: (abono || agua || poda)
-                                            ? FontWeight.w700
-                                            : FontWeight.normal,
+                                        fontWeight:
+                                            (abono || agua || poda || nota)
+                                                ? FontWeight.w700
+                                                : FontWeight.normal,
                                         color: seleccionado
                                             ? Colors.white
                                             : cs.onSurface,
@@ -285,6 +289,11 @@ class _MedicionesScreenState extends State<MedicionesScreen> {
                                             color: seleccionado
                                                 ? Colors.white70
                                                 : Colors.green.shade500),
+                                      if (nota)
+                                        _Dot(
+                                            color: seleccionado
+                                                ? Colors.white70
+                                                : Colors.amber.shade600),
                                     ],
                                   ),
                                 ],
@@ -300,11 +309,13 @@ class _MedicionesScreenState extends State<MedicionesScreen> {
 
                   Wrap(
                     spacing: 16,
+                    runSpacing: 6,
                     children: [
                       _LeyendaItem(color: cs.primary, label: 'Abono'),
                       _LeyendaItem(
                           color: Colors.blue.shade400, label: 'Cambio de agua'),
                       _LeyendaItem(color: Colors.green.shade500, label: 'Poda'),
+                      _LeyendaItem(color: Colors.amber.shade600, label: 'Nota'),
                     ],
                   ),
 
@@ -443,6 +454,10 @@ class _TarjetaEvento extends StatelessWidget {
         icono = Icons.content_cut;
         color = Colors.green.shade500;
         titulo = 'Poda';
+      case TipoEvento.nota:
+        icono = Icons.notes_rounded;
+        color = Colors.amber.shade600;
+        titulo = 'Nota';
     }
 
     return Card(
@@ -489,8 +504,6 @@ class _TarjetaEvento extends StatelessWidget {
                         fontWeight: FontWeight.w600)),
               ),
               const SizedBox(height: 10),
-
-              // ── Headers de columna ──────────────────────────────
               Row(
                 children: [
                   Expanded(
@@ -524,8 +537,6 @@ class _TarjetaEvento extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-
-              // ── Filas por nutriente ─────────────────────────────
               ...m.niveles.entries.map((e) {
                 final actual = m.nivelesActuales[e.key];
                 final objetivo = m.objetivos[e.key];
@@ -540,7 +551,6 @@ class _TarjetaEvento extends StatelessWidget {
                               style: const TextStyle(
                                   fontSize: 13, fontWeight: FontWeight.w600)),
                         ),
-                        // Medido
                         SizedBox(
                           width: 80,
                           child: Center(
@@ -568,7 +578,6 @@ class _TarjetaEvento extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        // Objetivo
                         SizedBox(
                           width: 80,
                           child: Center(
@@ -597,7 +606,6 @@ class _TarjetaEvento extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        // ml agregados
                         SizedBox(
                           width: 64,
                           child: Center(
@@ -651,6 +659,24 @@ class _TarjetaEvento extends StatelessWidget {
                 m.notasPoda!.isNotEmpty) ...[
               const Divider(height: 14),
               Text(m.notasPoda!, style: const TextStyle(fontSize: 13)),
+            ],
+
+            // ── Nota ─────────────────────────────────────────────
+            if (m.tipoEvento == TipoEvento.nota &&
+                m.notasPoda != null &&
+                m.notasPoda!.isNotEmpty) ...[
+              const Divider(height: 14),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade600.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: Colors.amber.shade600.withValues(alpha: 0.3)),
+                ),
+                child: Text(m.notasPoda!,
+                    style: const TextStyle(fontSize: 13, height: 1.45)),
+              ),
             ],
           ],
         ),
@@ -721,7 +747,9 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
           ? double.tryParse(_porcentajeController.text)
           : m.porcentajeCambioAgua,
       notasPoda:
-          m.tipoEvento == TipoEvento.poda ? _notasController.text : m.notasPoda,
+          (m.tipoEvento == TipoEvento.poda || m.tipoEvento == TipoEvento.nota)
+              ? _notasController.text
+              : m.notasPoda,
     ));
     if (mounted) Navigator.pop(context);
   }
@@ -747,6 +775,10 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
         icono = Icons.content_cut;
         color = Colors.green.shade500;
         titulo = 'Editar poda';
+      case TipoEvento.nota:
+        icono = Icons.notes_rounded;
+        color = Colors.amber.shade600;
+        titulo = 'Editar nota';
     }
 
     return Padding(
@@ -771,14 +803,16 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
               ],
             ),
             const SizedBox(height: 16),
-            TextField(
-              controller: _litrosController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                  labelText: 'Litros del acuario', suffixText: 'L'),
-            ),
-            const SizedBox(height: 12),
+            if (m.tipoEvento != TipoEvento.nota) ...[
+              TextField(
+                controller: _litrosController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                    labelText: 'Litros del acuario', suffixText: 'L'),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (m.tipoEvento == TipoEvento.abono) ...[
               Text('ml agregados por producto',
                   style: TextStyle(
@@ -811,6 +845,19 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
                 maxLines: 3,
                 decoration:
                     const InputDecoration(labelText: 'Notas de la poda'),
+              ),
+            if (m.tipoEvento == TipoEvento.nota)
+              TextField(
+                controller: _notasController,
+                maxLines: 5,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Nota',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.all(12),
+                ),
               ),
             const SizedBox(height: 20),
             SizedBox(
@@ -872,11 +919,13 @@ class _DialogoNuevoEventoState extends State<_DialogoNuevoEvento> {
     );
     await widget.onGuardar(Medicion(
       fecha: ahora,
-      litros: litros,
+      litros: _tipo == TipoEvento.nota ? 0 : litros,
       niveles: {},
       tipoEvento: _tipo,
       porcentajeCambioAgua: _tipo == TipoEvento.cambioAgua ? porcentaje : null,
-      notasPoda: _tipo == TipoEvento.poda ? _notasController.text : null,
+      notasPoda: (_tipo == TipoEvento.poda || _tipo == TipoEvento.nota)
+          ? _notasController.text
+          : null,
     ));
     if (mounted) Navigator.pop(context);
   }
@@ -890,75 +939,108 @@ class _DialogoNuevoEventoState extends State<_DialogoNuevoEvento> {
         right: 20,
         top: 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-              'Nuevo evento — ${widget.dia.day}/${widget.dia.month}/${widget.dia.year}',
-              style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _TipoChip(
-                label: 'Cambio de agua',
-                icono: Icons.water_drop,
-                color: Colors.blue.shade400,
-                seleccionado: _tipo == TipoEvento.cambioAgua,
-                onTap: () => setState(() => _tipo = TipoEvento.cambioAgua),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+                'Nuevo evento — ${widget.dia.day}/${widget.dia.month}/${widget.dia.year}',
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+
+            // ── Selector de tipo ────────────────────────────────
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _TipoChip(
+                  label: 'Cambio de agua',
+                  icono: Icons.water_drop,
+                  color: Colors.blue.shade400,
+                  seleccionado: _tipo == TipoEvento.cambioAgua,
+                  onTap: () => setState(() => _tipo = TipoEvento.cambioAgua),
+                ),
+                _TipoChip(
+                  label: 'Poda',
+                  icono: Icons.content_cut,
+                  color: Colors.green.shade500,
+                  seleccionado: _tipo == TipoEvento.poda,
+                  onTap: () => setState(() => _tipo = TipoEvento.poda),
+                ),
+                _TipoChip(
+                  label: 'Nota',
+                  icono: Icons.notes_rounded,
+                  color: Colors.amber.shade600,
+                  seleccionado: _tipo == TipoEvento.nota,
+                  onTap: () => setState(() => _tipo = TipoEvento.nota),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Campos según tipo ───────────────────────────────
+            if (_tipo != TipoEvento.nota) ...[
+              TextField(
+                controller: _litrosController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                    labelText: 'Litros del acuario', suffixText: 'L'),
               ),
-              const SizedBox(width: 8),
-              _TipoChip(
-                label: 'Poda',
-                icono: Icons.content_cut,
-                color: Colors.green.shade500,
-                seleccionado: _tipo == TipoEvento.poda,
-                onTap: () => setState(() => _tipo = TipoEvento.poda),
-              ),
+              const SizedBox(height: 12),
             ],
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _litrosController,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-                labelText: 'Litros del acuario', suffixText: 'L'),
-          ),
-          const SizedBox(height: 12),
-          if (_tipo == TipoEvento.cambioAgua)
-            TextField(
-              controller: _porcentajeController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                  labelText: 'Porcentaje de cambio', suffixText: '%'),
-            ),
-          if (_tipo == TipoEvento.poda)
-            TextField(
-              controller: _notasController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Notas de la poda (opcional)',
-                hintText: 'Ej: Recorté rotala y anubias...',
+            if (_tipo == TipoEvento.cambioAgua)
+              TextField(
+                controller: _porcentajeController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                    labelText: 'Porcentaje de cambio', suffixText: '%'),
+              ),
+            if (_tipo == TipoEvento.poda)
+              TextField(
+                controller: _notasController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Notas de la poda (opcional)',
+                  hintText: 'Ej: Recorté rotala y anubias...',
+                ),
+              ),
+            if (_tipo == TipoEvento.nota)
+              TextField(
+                controller: _notasController,
+                maxLines: 5,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Escribe tu nota',
+                  hintText:
+                      'Aqui comentaras Ej: Limpié el filtro,\ncambié el sustrato,\nagregué CO₂...',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _guardando ? null : _guardar,
+                child: _guardando
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Guardar evento'),
               ),
             ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _guardando ? null : _guardar,
-              child: _guardando
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Guardar evento'),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }

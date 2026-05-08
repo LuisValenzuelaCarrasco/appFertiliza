@@ -27,6 +27,9 @@ class FertilizaAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       automaticallyImplyLeading: false,
       toolbarHeight: kToolbarHeight,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      titleSpacing: 0,
       flexibleSpace: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -37,10 +40,13 @@ class FertilizaAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       title: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          const SizedBox(width: 8),
+          // ── Logo completo ──────────────────────────────────
           Image.asset(
-            'lib/assets/logotipo/fertilizalogotipo.png',
-            height: 35,
+            'lib/assets/logotipo/fertilizacompletologotipo.png',
+            height: 32,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const Icon(
               Icons.eco,
@@ -49,19 +55,20 @@ class FertilizaAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            subtitulo,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.white70,
-              letterSpacing: 0.3,
+          // ── Subtítulo ──────────────────────────────────────
+          Expanded(
+            child: Text(
+              subtitulo,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.white70,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
         ],
       ),
       actions: actions,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
     );
   }
 }
