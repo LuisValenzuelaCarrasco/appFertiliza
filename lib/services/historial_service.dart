@@ -1,3 +1,4 @@
+// services/historial_service.dart
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/medicion.dart';
@@ -22,12 +23,35 @@ class HistorialService {
     await prefs.setStringList(_key, lista);
   }
 
-  static Future<void> eliminar(int indexDesdeElFinal) async {
+  // ── CORREGIDO: busca por id en lugar de índice invertido ──────
+  static Future<void> eliminar(String id) async {
     final prefs = await SharedPreferences.getInstance();
     final lista = prefs.getStringList(_key) ?? [];
-    final realIndex = lista.length - 1 - indexDesdeElFinal;
-    if (realIndex >= 0) lista.removeAt(realIndex);
+    lista.removeWhere((e) {
+      try {
+        return Medicion.fromJson(jsonDecode(e)).id == id;
+      } catch (_) {
+        return false;
+      }
+    });
     await prefs.setStringList(_key, lista);
+  }
+
+  // ── CORREGIDO: busca por id en lugar de índice invertido ──────
+  static Future<void> actualizar(String id, Medicion medicion) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList(_key) ?? [];
+    final i = lista.indexWhere((e) {
+      try {
+        return Medicion.fromJson(jsonDecode(e)).id == id;
+      } catch (_) {
+        return false;
+      }
+    });
+    if (i >= 0) {
+      lista[i] = jsonEncode(medicion.toJson());
+      await prefs.setStringList(_key, lista);
+    }
   }
 
   static Future<void> limpiar() async {
@@ -35,21 +59,9 @@ class HistorialService {
     await prefs.remove(_key);
   }
 
-  static Future<void> actualizar(
-      int indexDesdeElFinal, Medicion medicion) async {
-    final prefs = await SharedPreferences.getInstance();
-    final lista = prefs.getStringList(_key) ?? [];
-    final realIndex = lista.length - 1 - indexDesdeElFinal;
-    if (realIndex >= 0) {
-      lista[realIndex] = jsonEncode(medicion.toJson());
-      await prefs.setStringList(_key, lista);
-    }
-  }
-
   static Future<void> borrarPorFecha(DateTime fecha) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_key) ?? [];
-
     final filtrados = raw.where((e) {
       try {
         final m = Medicion.fromJson(jsonDecode(e));
@@ -60,7 +72,6 @@ class HistorialService {
         return true;
       }
     }).toList();
-
     await prefs.setStringList(_key, filtrados);
   }
 }

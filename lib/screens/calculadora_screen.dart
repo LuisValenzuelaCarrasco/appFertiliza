@@ -7,6 +7,7 @@ import '../widgets/producto_selector.dart';
 import '../widgets/fertiliza_app_bar.dart';
 import '../models/medicion.dart';
 import '../services/historial_service.dart';
+import '../services/historial_notifier.dart';
 
 class CalculadoraScreen extends StatefulWidget {
   const CalculadoraScreen({super.key});
@@ -17,10 +18,16 @@ class CalculadoraScreen extends StatefulWidget {
 
 class _CalculadoraScreenState extends State<CalculadoraScreen> {
   final _litrosController = TextEditingController(text: '100');
-  double _litros = 100;
+  double get _litros => double.tryParse(_litrosController.text) ?? 100;
 
   bool _mostrarResultados = false;
   bool _isLoading = false;
+
+  Set<String> _productosCalculados = {};
+  Set<String> _adicionalesCalculados = {};
+  Map<String, double> _nivelesSnapshot = {};
+  Map<String, String> _modalidadesSnapshot = {};
+  double _litrosCalculados = 0;
 
   final Map<String, TextEditingController> _nivelControllers = {
     'nitrogeno': TextEditingController(text: '0'),
@@ -86,7 +93,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     setState(() {
       _isLoading = true;
       _mostrarResultados = false;
-      _litros = litros;
+      // elimina la línea double _litros = 100;
     });
 
     await Future.delayed(const Duration(milliseconds: 300));
@@ -95,7 +102,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     final nivelesActuales = <String, double>{};
     final objetivosGuardados = <String, double>{};
 
-    // ── Productos con testeo (NPK / hierros) ──────────────
     for (final p in productosTesteables
         .where((p) => _productosSeleccionados.contains(p.id))) {
       final nivelActual =
@@ -108,7 +114,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       objetivosGuardados[p.nombre] = objetivo;
     }
 
-    // ── Productos adicionales (dosis directa) ─────────────
     for (final p in productosAdicionales
         .where((p) => _productosAdicionalesSeleccionados.contains(p.id))) {
       final modalidad = _modalidadActual(p);
@@ -126,6 +131,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
         nivelesActuales: nivelesActuales,
         objetivos: objetivosGuardados,
       ));
+      historialNotifier.value++;
     } catch (e) {
       debugPrint('❌ Error historial: $e');
     }
@@ -133,6 +139,15 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     setState(() {
       _isLoading = false;
       _mostrarResultados = true;
+      _productosCalculados = Set.from(_productosSeleccionados);
+      _adicionalesCalculados = Set.from(_productosAdicionalesSeleccionados);
+      _nivelesSnapshot = {
+        for (final p in productosTesteables)
+          if (_productosSeleccionados.contains(p.id))
+            p.id: double.tryParse(_nivelControllers[p.id]?.text ?? '0') ?? 0,
+      };
+      _modalidadesSnapshot = Map.from(_modalidadesSeleccionadas);
+      _litrosCalculados = litros;
     });
 
     Future.delayed(const Duration(milliseconds: 150), () {
@@ -140,6 +155,27 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       Scrollable.ensureVisible(context,
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOutCubic);
+    });
+  }
+
+  void _restablecerCalculadora() {
+    setState(() {
+      _mostrarResultados = false;
+      _productosSeleccionados.clear();
+      _productosAdicionalesSeleccionados.clear();
+      _productosCalculados.clear();
+      _adicionalesCalculados.clear();
+      _nivelesSnapshot.clear();
+      _modalidadesSnapshot.clear();
+      for (final c in _nivelControllers.values) {
+        c.text = '0';
+      }
+      for (final c in _objetivoControllers.values) {
+        c.clear();
+      }
+
+      _litrosController.text = '100';
+      _litrosCalculados = 0;
     });
   }
 
@@ -166,7 +202,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
         return Icons.water_drop_outlined;
       case 'Biológico':
         return Icons.science_outlined;
-      case 'Estimulante': // ← nuevo
+      case 'Estimulante':
         return Icons.energy_savings_leaf_outlined;
       default:
         return Icons.local_florist_outlined;
@@ -191,8 +227,8 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final totalSeleccionados = _productosSeleccionados.length +
-        _productosAdicionalesSeleccionados.length;
+    final totalCalculados =
+        _productosCalculados.length + _adicionalesCalculados.length;
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -233,19 +269,43 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _litrosController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: 'Litros del acuario',
-                  prefixIcon: const Icon(Icons.water_drop),
-                  suffixText: 'L',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _litrosController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'Litros del acuario',
+                      prefixIcon: const Icon(Icons.water_drop),
+                      suffixText: 'L',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onChanged: (_) => setState(() {}),
                   ),
-                ),
-                onChanged: (_) => setState(() => _mostrarResultados = false),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline,
+                          size: 13, color: Colors.grey),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          'Ingresa el volumen real: descuenta piedras, troncos, plantas y sustrato (generalmente un 10–20% menos que la capacidad del acuario).',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -272,17 +332,14 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                     children: [
                       TextButton(
                         onPressed: () => setState(() {
-                          _productosSeleccionados.addAll(
-                            productosTesteables.map((e) => e.id),
-                          );
+                          _productosSeleccionados
+                              .addAll(productosTesteables.map((e) => e.id));
                         }),
                         child: const Text('Todos'),
                       ),
                       TextButton(
-                        onPressed: () => setState(() {
-                          _productosSeleccionados.clear();
-                          _mostrarResultados = false;
-                        }),
+                        onPressed: () =>
+                            setState(() => _productosSeleccionados.clear()),
                         child: const Text('Limpiar'),
                       ),
                     ],
@@ -299,10 +356,8 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                         } else {
                           _productosSeleccionados.remove(p.id);
                         }
-                        _mostrarResultados = false;
                       }),
-                      onChanged: () =>
-                          setState(() => _mostrarResultados = false),
+                      onChanged: () => setState(() {}),
                     ),
                   ),
                 ],
@@ -343,7 +398,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                         } else {
                           _productosAdicionalesSeleccionados.remove(p.id);
                         }
-                        _mostrarResultados = false;
                       }),
                       title: Row(
                         children: [
@@ -401,8 +455,9 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _miniStat('Litros', '${_litros.toStringAsFixed(0)} L'),
-                    _miniStat('Productos', '$totalSeleccionados'),
+                    _miniStat(
+                        'Litros', '${_litrosCalculados.toStringAsFixed(0)} L'),
+                    _miniStat('Productos', '$totalCalculados'),
                     _miniStat('Estado', 'OK'),
                   ],
                 ),
@@ -417,15 +472,13 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
             child: _mostrarResultados
                 ? Column(
                     children: productosTesteables
-                        .where((p) => _productosSeleccionados.contains(p.id))
+                        .where((p) => _productosCalculados.contains(p.id))
                         .map((p) {
-                      final nivelActual = double.tryParse(
-                              _nivelControllers[p.id]?.text ?? '0') ??
-                          0;
+                      final nivelActual = _nivelesSnapshot[p.id] ?? 0;
                       final objetivo = _objetivoEfectivo(p);
                       return ResultadoCard(
                         producto: p,
-                        litros: _litros,
+                        litros: _litrosCalculados,
                         nivelActual: nivelActual,
                         objetivoOverride: objetivo,
                       );
@@ -437,14 +490,31 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
           // ── RESULTADOS OTROS PRODUCTOS ────────────────────────
           if (_mostrarResultados)
             ...productosAdicionales
-                .where((p) => _productosAdicionalesSeleccionados.contains(p.id))
+                .where((p) => _adicionalesCalculados.contains(p.id))
                 .map((p) => _TarjetaProductoAdicional(
+                      key: ValueKey(p.id),
                       producto: p,
-                      litros: _litros,
-                      modalidad: _modalidadActual(p),
+                      litros: _litrosCalculados,
+                      modalidadInicial: _modalidadesSnapshot[p.id] ??
+                          (p.modalidades.isNotEmpty ? p.modalidades.first : ''),
                       onModalidadChanged: (m) =>
                           setState(() => _modalidadesSeleccionadas[p.id] = m),
                     )),
+
+          // ── BOTÓN RESTABLECER ─────────────────────────────────
+          if (_mostrarResultados) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _restablecerCalculadora,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Restablecer calculadora'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                foregroundColor: Colors.red.shade400,
+                side: BorderSide(color: Colors.red.shade300),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 40),
         ],
@@ -454,26 +524,44 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
 }
 
 // ── Tarjeta resultado producto adicional ──────────────────────────────────────
+// 👈 CORREGIDO: StatefulWidget para que las pestañas respondan y la dosis
+//    se actualice al instante al cambiar modalidad
 
-class _TarjetaProductoAdicional extends StatelessWidget {
+class _TarjetaProductoAdicional extends StatefulWidget {
   final Producto producto;
   final double litros;
-  final String modalidad;
+  final String modalidadInicial;
   final ValueChanged<String> onModalidadChanged;
 
   const _TarjetaProductoAdicional({
+    super.key,
     required this.producto,
     required this.litros,
-    required this.modalidad,
+    required this.modalidadInicial,
     required this.onModalidadChanged,
   });
 
   @override
+  State<_TarjetaProductoAdicional> createState() =>
+      _TarjetaProductoAdicionalState();
+}
+
+class _TarjetaProductoAdicionalState extends State<_TarjetaProductoAdicional> {
+  late String _modalidadLocal;
+
+  @override
+  void initState() {
+    super.initState();
+    _modalidadLocal = widget.modalidadInicial;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final color =
-        Color(int.parse('FF${producto.color.replaceAll('#', '')}', radix: 16));
-    final dosis = producto.calcularDosisPorModalidad(litros, modalidad);
+    final color = Color(
+        int.parse('FF${widget.producto.color.replaceAll('#', '')}', radix: 16));
+    final dosis = widget.producto
+        .calcularDosisPorModalidad(widget.litros, _modalidadLocal);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -491,12 +579,12 @@ class _TarjetaProductoAdicional extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(producto.nombre,
+                      Text(widget.producto.nombre,
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: color,
                               fontSize: 15)),
-                      Text(producto.descripcionCorta,
+                      Text(widget.producto.descripcionCorta,
                           style: TextStyle(
                               fontSize: 11, color: cs.onSurfaceVariant)),
                     ],
@@ -508,7 +596,7 @@ class _TarjetaProductoAdicional extends StatelessWidget {
             const Divider(height: 16),
 
             // ── Selector modalidad ───────────────────────
-            if (producto.modalidades.length > 1) ...[
+            if (widget.producto.modalidades.length > 1) ...[
               Text('Modo de uso',
                   style: TextStyle(
                       fontSize: 12,
@@ -518,10 +606,13 @@ class _TarjetaProductoAdicional extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
-                children: producto.modalidades.map((m) {
-                  final sel = m == modalidad;
+                children: widget.producto.modalidades.map((m) {
+                  final sel = m == _modalidadLocal;
                   return GestureDetector(
-                    onTap: () => onModalidadChanged(m),
+                    onTap: () {
+                      setState(() => _modalidadLocal = m); // 👈 actualiza UI
+                      widget.onModalidadChanged(m); // 👈 notifica padre
+                    },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(
@@ -555,7 +646,7 @@ class _TarjetaProductoAdicional extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(producto.consejo,
+                  child: Text(widget.producto.consejo,
                       style: TextStyle(
                           fontSize: 11,
                           color: cs.onSurfaceVariant,
@@ -577,7 +668,7 @@ class _TarjetaProductoAdicional extends StatelessWidget {
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
                               color: color)),
-                      Text('para ${litros.toStringAsFixed(0)} L',
+                      Text('para ${widget.litros.toStringAsFixed(0)} L',
                           style: TextStyle(
                               fontSize: 10, color: cs.onSurfaceVariant)),
                     ],

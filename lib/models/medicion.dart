@@ -1,7 +1,18 @@
 // models/medicion.dart
 enum TipoEvento { abono, cambioAgua, poda, nota }
 
+// Generador de UUID v4 simple sin dependencias externas
+String _generarUuid() {
+  final now = DateTime.now().microsecondsSinceEpoch;
+  final rand = now ^ (now >> 16);
+  String hex(int n, int digits) =>
+      n.toRadixString(16).padLeft(digits, '0').substring(0, digits);
+  return '${hex(rand >> 32, 8)}-${hex(rand >> 16, 4)}-4${hex(rand >> 12, 3)}'
+      '-${hex(8 + (rand >> 30) % 4, 1)}${hex(rand >> 28, 3)}-${hex(rand, 12)}';
+}
+
 class Medicion {
+  final String id; // ← NUEVO: identificador único por evento
   final DateTime fecha;
   final double litros;
   final Map<String, double> niveles;
@@ -12,6 +23,7 @@ class Medicion {
   final String? notasPoda;
 
   Medicion({
+    String? id, // opcional: se genera automáticamente si no se provee
     required this.fecha,
     required this.litros,
     required this.niveles,
@@ -20,20 +32,23 @@ class Medicion {
     this.tipoEvento = TipoEvento.abono,
     this.porcentajeCambioAgua,
     this.notasPoda,
-  });
+  }) : id = id ?? _generarUuid();
 
   Map<String, dynamic> toJson() => {
+        'id': id, // ← serializado
         'fecha': fecha.toIso8601String(),
         'litros': litros,
         'niveles': niveles,
         'nivelesActuales': nivelesActuales,
-        'objetivos': objetivos, // 👈 agregado
+        'objetivos': objetivos,
         'tipoEvento': tipoEvento.name,
         'porcentajeCambioAgua': porcentajeCambioAgua,
         'notasPoda': notasPoda,
       };
 
   factory Medicion.fromJson(Map<String, dynamic> json) => Medicion(
+        // Si el registro es antiguo (sin id), se genera uno nuevo al leer
+        id: json['id'] as String?,
         fecha: DateTime.parse(json['fecha']),
         litros: (json['litros'] as num).toDouble(),
         niveles: json['niveles'] != null
@@ -44,7 +59,7 @@ class Medicion {
             ? Map<String, double>.from((json['nivelesActuales'] as Map)
                 .map((k, v) => MapEntry(k, (v as num).toDouble())))
             : {},
-        objetivos: json['objetivos'] != null // 👈 agregado
+        objetivos: json['objetivos'] != null
             ? Map<String, double>.from((json['objetivos'] as Map)
                 .map((k, v) => MapEntry(k, (v as num).toDouble())))
             : {},

@@ -14,15 +14,22 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
+  // IndexedStack mantiene todas las pantallas vivas en memoria,
+  // así el estado de la calculadora no se pierde al cambiar de pestaña.
+  final List<Widget> _screens = const [
+    CalculadoraScreen(),
+    MedicionesScreen(),
+    GuiaScreen(),
+    ProductosScreen(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: switch (_selectedIndex) {
-        0 => const CalculadoraScreen(),
-        1 => const GuiaScreen(),
-        2 => const ProductosScreen(),
-        _ => const MedicionesScreen(),
-      },
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (i) => setState(() => _selectedIndex = i),
@@ -33,6 +40,11 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Calculadora',
           ),
           NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'Mi Rutina',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.menu_book_outlined),
             selectedIcon: Icon(Icons.menu_book),
             label: 'Guía NPK',
@@ -41,11 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2),
             label: 'Productos',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: 'Mi Rutina',
           ),
         ],
       ),

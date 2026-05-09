@@ -261,10 +261,11 @@ final List<Producto> productosFerti = [
         'Neutraliza metales pesados. Seguro para peces e invertebrados.',
     tieneObjetivo: false,
     formatos: ['125ml', '250ml', '500ml', '1000ml', '5000ml'],
-    modalidades: ['Cambio de agua', 'Acuario nuevo'],
+    modalidades: [
+      'Cambio de agua',
+    ],
     mlPorModalidad: {
       'Cambio de agua': 2.5, // dosis normal 1ml/40L
-      'Acuario nuevo': 5.0, // doble dosis para arranque
     },
   ),
 

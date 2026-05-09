@@ -6,7 +6,7 @@ class ResultadoCard extends StatelessWidget {
   final Producto producto;
   final double litros;
   final double nivelActual;
-  final double? objetivoOverride; // NUEVO: objetivo personalizado
+  final double? objetivoOverride;
 
   const ResultadoCard({
     super.key,
@@ -16,37 +16,70 @@ class ResultadoCard extends StatelessWidget {
     this.objetivoOverride,
   });
 
-  /// Objetivo efectivo: el que pasó la pantalla, o el default del producto.
   double get _objetivo => (objetivoOverride != null && objetivoOverride! > 0)
       ? objetivoOverride!
       : producto.objetivoMgL;
+
+  // ── Tolerancias ────────────────────────────────────────────────
+  static const _hierros = {'hierro_micro', 'hierro_quelatado'};
+
+  double get _tolerancia {
+    if (_hierros.contains(producto.id)) return 0.35;
+    if (producto.id == 'potasio') return 0.0;
+    if (producto.id == 'fosfato') {
+      return 1.0; // OK hasta objetivo+1, exceso desde 2.1
+    }
+    return 5.0; // NPK general
+  }
 
   Color _hexToColor(String hex) {
     final h = hex.replaceAll('#', '');
     return Color(int.parse('FF$h', radix: 16));
   }
 
-  double get _exceso => nivelActual > _objetivo ? nivelActual - _objetivo : 0;
+  // ── Exceso real (superó objetivo + tolerancia) ─────────────────
+  bool get _esSobredosis {
+    if (producto.id == 'potasio') return nivelActual > 20;
+    if (_hierros.contains(producto.id)) {
+      return nivelActual > 0.35; // hierros: exceso fijo desde 0.36
+    }
+    return nivelActual > _objetivo + _tolerancia;
+  }
 
-  double get _porcentajeExceso => _objetivo > 0 ? _exceso / _objetivo : 0;
-
-  bool get _esSobredosis =>
-      producto.id == 'potasio' ? nivelActual > 15 : nivelActual > _objetivo;
+  // ── Zona OK: entre objetivo y objetivo+tolerancia ──────────────
+  bool get _esZonaOk {
+    if (producto.id == 'potasio') {
+      return nivelActual >= 10 && nivelActual <= 20;
+    }
+    if (_hierros.contains(producto.id)) {
+      return nivelActual >= _objetivo &&
+          nivelActual <= 0.35; // hierros: OK hasta 0.35 fijo
+    }
+    return nivelActual >= _objetivo && nivelActual <= _objetivo + _tolerancia;
+  }
 
   bool get _esZonaOkPotasio =>
-      producto.id == 'potasio' && nivelActual >= 10 && nivelActual <= 15;
+      producto.id == 'potasio' &&
+      nivelActual >= 10 &&
+      nivelActual <= 20; // ← CAMBIADO: 20 ya estaba, se mantiene consistente
 
-  bool get _esExcesoPotasio => producto.id == 'potasio' && nivelActual > 15;
+  bool get _esExcesoPotasio =>
+      producto.id == 'potasio' && nivelActual > 20; // ← CAMBIADO: 15 → 20
+
+  double get _exceso =>
+      _esSobredosis ? nivelActual - (_objetivo + _tolerancia) : 0;
+
+  double get _porcentajeExceso => _objetivo > 0 ? _exceso / _objetivo : 0;
 
   String _estadoTexto(double porcentaje) {
     if (_esExcesoPotasio) return 'Exceso detectado';
     if (_esZonaOkPotasio) return 'Nivel óptimo';
     if (producto.id == 'potasio' && nivelActual < 10) {
-      return nivelActual >= 5 ? 'Deficiencia  baja' : 'Deficiencia severa';
+      return nivelActual >= 5 ? 'Deficiencia baja' : 'Deficiencia severa';
     }
     if (_esSobredosis) return 'Exceso detectado';
-    if (nivelActual >= _objetivo) return 'Nivel óptimo';
-    if (porcentaje >= 0.7) return 'Deficiencia  baja';
+    if (_esZonaOk) return 'Nivel óptimo';
+    if (porcentaje >= 0.7) return 'Deficiencia baja';
     if (porcentaje >= 0.3) return 'Deficiencia media';
     return 'Deficiencia severa';
   }
@@ -58,7 +91,7 @@ class ResultadoCard extends StatelessWidget {
       return nivelActual >= 5 ? Colors.orange.shade600 : Colors.red.shade700;
     }
     if (_esSobredosis) return Colors.red.shade700;
-    if (nivelActual >= _objetivo) return Colors.green.shade600;
+    if (_esZonaOk) return Colors.green.shade600;
     if (porcentaje >= 0.7) return Colors.orange.shade600;
     if (porcentaje >= 0.3) return Colors.deepOrange.shade600;
     return Colors.red.shade700;
@@ -85,19 +118,20 @@ class ResultadoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _hexToColor(producto.color);
 
-    // ml necesarios para ir de nivelActual → _objetivo
-    final mlNecesarios = producto.calcularMlNecesarios(
-      nivelActual,
-      litros,
-      objetivo: _objetivo,
-    );
+    // Si está en zona OK o exceso, no hay ml que agregar
+    final mlNecesarios = (_esZonaOk || _esSobredosis)
+        ? 0.0
+        : producto.calcularMlNecesarios(nivelActual, litros,
+            objetivo: _objetivo);
 
     final porcentaje =
         _objetivo > 0 ? (nivelActual / _objetivo).clamp(0.0, 2.0) : 0.0;
     final porcentajeNormal = porcentaje.clamp(0.0, 1.0);
     final estadoTexto = _estadoTexto(porcentajeNormal);
     final estadoColor = _estadoColor(porcentajeNormal);
-    final optimo = nivelActual >= _objetivo && !_esSobredosis;
+
+    // Óptimo = zona OK o exactamente en objetivo
+    final optimo = _esZonaOk;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -184,9 +218,10 @@ class ResultadoCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      _objetivo.toStringAsFixed(_objetivo % 1 == 0 ? 0 : 1),
+                      '${_objetivo.toStringAsFixed(_objetivo % 1 == 0 ? 0 : 1)}'
+                      ' ${_tolerancia > 0 ? "(±${_tolerancia % 1 == 0 ? _tolerancia.toStringAsFixed(0) : _tolerancia.toStringAsFixed(2)})" : ""}',
                       style:
-                          TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                          TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
                   ],
                 ),
@@ -229,6 +264,41 @@ class ResultadoCard extends StatelessWidget {
                     ],
                   ),
                 ),
+
+                // ── Zona OK (no es exceso, pero nivel >= objetivo) ─────
+                if (optimo && !_esSobredosis) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border:
+                          Border.all(color: Colors.green.shade200, width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle,
+                            color: Colors.green.shade600, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            producto.id == 'potasio'
+                                ? 'Nivel en zona óptima (10–20 mg/L). No es necesario agregar más.' // ← CAMBIADO: 10–15 → 10–20
+                                : _hierros.contains(producto.id)
+                                    ? 'Nivel en zona óptima (objetivo ±0.35 mg/L). No es necesario agregar más.'
+                                    : 'Nivel en zona óptima (objetivo ±5 mg/L). No es necesario agregar más.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green.shade800,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 // ── Alerta sobredosis ──────────────────────────────────
                 if (_esSobredosis) ...[
@@ -323,7 +393,7 @@ class ResultadoCard extends StatelessWidget {
                   ),
                 ],
 
-                // ── Dosis de corrección ────────────────────────────────
+                // ── Dosis de corrección (solo si hay déficit real) ─────
                 if (!_esSobredosis && !optimo) ...[
                   const SizedBox(height: 16),
                   _DosisRow(

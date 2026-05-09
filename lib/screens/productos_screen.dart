@@ -16,16 +16,16 @@ class ProductosScreen extends StatelessWidget {
     ProductoItem('Nitrógeno NO3', 'lib/assets/productos/Nitrogeno.jpeg'),
     ProductoItem('Fosfato PO4', 'lib/assets/productos/Fosfato.jpeg'),
     ProductoItem('Potasio K', 'lib/assets/productos/Potacio.jpeg'),
+    ProductoItem('Potasio + Micronutrientes',
+        'lib/assets/productos/potacio mas micronutrientes.jpeg'),
+    ProductoItem('Potasio + Micronutrientes ',
+        'lib/assets/productos/potacio mas micronutrientes 2.jpeg'),
     ProductoItem('Hierro + Micronutrientes',
         'lib/assets/productos/Hierro mas micronutrientes.jpeg'),
     ProductoItem(
         'Hierro Fe Quelatado', 'lib/assets/productos/hierro quelatado.jpeg'),
     ProductoItem(
         'Micronutrientes', 'lib/assets/productos/micronutrientes.jpeg'),
-    ProductoItem('Potasio + Micronutrientes',
-        'lib/assets/productos/potacio mas micronutrientes.jpeg'),
-    ProductoItem('Potasio + Micronutrientes (detalle)',
-        'lib/assets/productos/potacio mas micronutrientes 2.jpeg'),
     ProductoItem('Potenciador de Crecimiento',
         'lib/assets/productos/potenciador de crecimiento.jpeg'),
     ProductoItem('Potenciador de Crecimiento (info)',
@@ -34,21 +34,26 @@ class ProductosScreen extends StatelessWidget {
         'lib/assets/productos/potenciador de crecimiento 3.jpeg'),
     ProductoItem('Potenciador de Crecimiento (contenido)',
         'lib/assets/productos/potenciador de crecimiento 4.jpeg'),
+    ProductoItem('Anti-Algas + Carbono CO2',
+        'lib/assets/productos/anti algas carbono co2.jpeg'),
+    ProductoItem('Anti -Alga H2O', 'lib/assets/productos/anti-alga h2o2.jpeg'),
+    ProductoItem('Anticloro', 'lib/assets/productos/anticloro.jpeg'),
     ProductoItem('Acondicionador Multivitamínico',
         'lib/assets/productos/acondicionador multivitaminico.jpeg'),
     ProductoItem(
         'Análisis Cloro y Cloraminas', 'lib/assets/productos/analisis 1 .jpeg'),
     ProductoItem(
         'Análisis Amonio y Metales', 'lib/assets/productos/analisis 2.jpeg'),
-    ProductoItem('Anti-Algas + Carbono CO2',
-        'lib/assets/productos/anti algas carbono co2.jpeg'),
-    ProductoItem('Anticloro', 'lib/assets/productos/anticloro.jpeg'),
     ProductoItem(
         'Bacterias Vivas', 'lib/assets/productos/bacterias vivas.jpeg'),
     ProductoItem('Bacterias Vivas (info)',
         'lib/assets/productos/bacterias vivas 2.jpeg'),
     ProductoItem(
         'Material Filtrante', 'lib/assets/productos/material filtrante.jpeg'),
+    ProductoItem('Material Filtrante Biologico talla m ',
+        'lib/assets/productos/filtrante biologico talla m.jpeg'),
+    ProductoItem('MaterialApp FIltrante biologico Talla l',
+        'lib/assets/productos/filtrante biologico talla l.jpeg'),
   ];
 
   @override
