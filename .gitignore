@@ -53,3 +53,5 @@ build/
 ios/Pods/
 android/.gradle/
 android/app/debug.keystore
+key.properties
+*.jks

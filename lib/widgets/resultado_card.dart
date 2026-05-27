@@ -1,6 +1,6 @@
 // widgets/resultado_card.dart
 import 'package:flutter/material.dart';
-import '../models/producto.dart';
+import 'package:rutina_fertiliza/models/producto.dart';
 
 class ResultadoCard extends StatelessWidget {
   final Producto producto;

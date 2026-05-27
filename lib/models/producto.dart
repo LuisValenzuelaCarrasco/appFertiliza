@@ -12,8 +12,9 @@ class Producto {
   final String consejo;
   final bool tieneObjetivo;
   final List<String> formatos;
-  final List<String> modalidades; // ← nuevo: para productos con varios modos
-  final Map<String, double> mlPorModalidad; // ← nuevo: ml según modalidad
+  final List<String> modalidades;
+  final Map<String, double> mlPorModalidad;
+  final Map<String, String> consejoPorModalidad; // 👈 NUEVO
 
   const Producto({
     required this.id,
@@ -30,6 +31,7 @@ class Producto {
     this.formatos = const ['125ml', '225ml', '500ml', '1000ml'],
     this.modalidades = const [],
     this.mlPorModalidad = const {},
+    this.consejoPorModalidad = const {}, // 👈 NUEVO
   });
 
   double calcularMlNecesarios(
@@ -46,16 +48,17 @@ class Producto {
 
   double dosisBase(double litros) => (mlPor100L / 100.0) * litros;
 
-  /// Para productos adicionales: calcula según modalidad elegida
   double calcularDosisPorModalidad(double litros, String modalidad) {
     final ml = mlPorModalidad[modalidad] ?? mlPor100L;
     return (ml / 100.0) * litros;
   }
 }
 
-final List<Producto> productosFerti = [
+// ── LISTA DE PRODUCTOS ────────────────────────────────────────────────────────
+
+const List<Producto> productosFerti = [
   // ── MACRONUTRIENTES ──────────────────────────────────────────
-  const Producto(
+  Producto(
     id: 'nitrogeno',
     nombre: 'Nitrógeno NO3',
     categoria: 'Macronutriente',
@@ -68,7 +71,7 @@ final List<Producto> productosFerti = [
     consejo: 'Si está en 0mg/L, añadir 20ml/100L para llegar a 10mg/L. '
         'Mantener relación NO3:PO4 = 10:1 para evitar algas.',
   ),
-  const Producto(
+  Producto(
     id: 'fosfato',
     nombre: 'Fosfato PO4',
     categoria: 'Macronutriente',
@@ -81,7 +84,7 @@ final List<Producto> productosFerti = [
     consejo: 'Si está en 0mg/L, añadir 8ml/100L para llegar a 1mg/L. '
         'Producto 2.5x concentrado desde 2024: ajusta si tienes versión anterior.',
   ),
-  const Producto(
+  Producto(
     id: 'potasio',
     nombre: 'Potasio K',
     categoria: 'Macronutriente',
@@ -95,8 +98,7 @@ final List<Producto> productosFerti = [
         'Si está en 0mg/L, añadir 30ml/100L para llegar a 15mg/L. '
         'No exceder: inhibe absorción de otros nutrientes.',
   ),
-
-  const Producto(
+  Producto(
     id: 'potasio_micro',
     nombre: 'Potasio + Micronutrientes',
     categoria: 'Macronutriente',
@@ -112,7 +114,7 @@ final List<Producto> productosFerti = [
   ),
 
   // ── MICRONUTRIENTES ──────────────────────────────────────────
-  const Producto(
+  Producto(
     id: 'hierro_micro',
     nombre: 'Hierro+ Micronutrientes',
     categoria: 'Micronutriente',
@@ -126,7 +128,7 @@ final List<Producto> productosFerti = [
         'Niveles muy altos favorecen algas. '
         'Testear Fe regularmente. No para acuarios con invertebrados.',
   ),
-  const Producto(
+  Producto(
     id: 'hierro_quelatado',
     nombre: 'Hierro Fe Quelatado',
     categoria: 'Micronutriente',
@@ -140,7 +142,7 @@ final List<Producto> productosFerti = [
         'Quelatos EDDHA de alta estabilidad — funciona en rango amplio de pH. '
         'Ideal para corregir clorosis. No contiene nitratos ni fosfatos.',
   ),
-  const Producto(
+  Producto(
     id: 'micronutrientes',
     nombre: 'Micronutrientes',
     categoria: 'Micronutriente',
@@ -158,8 +160,8 @@ final List<Producto> productosFerti = [
     mlPorModalidad: {'Uso general': 10.0},
   ),
 
-  // ── TRATAMIENTOS ─────────────────────────────────────────────
-  const Producto(
+  // ── ESTIMULANTES ─────────────────────────────────────────────
+  Producto(
     id: 'potenciador_crecimiento',
     nombre: 'Potenciador de Crecimiento',
     categoria: 'Estimulante',
@@ -169,8 +171,7 @@ final List<Producto> productosFerti = [
     objetivoMgL: 1.0,
     unidadAporte: 'dosis',
     color: '#7B1FA2',
-    consejo: 'Aplicar 5ml por cada 100 litros, 2 veces por semana. '
-        'Estimula raíces, nuevas hojas y tallos. '
+    consejo: 'Estimula raíces, nuevas hojas y tallos. '
         'Ideal tras podas o en plantas con crecimiento lento.',
     tieneObjetivo: false,
     formatos: ['125ml', '250ml', '500ml', '1000ml', '5000ml'],
@@ -179,57 +180,81 @@ final List<Producto> productosFerti = [
       'Mantenimiento': 5.0,
       'Estimulación activa': 10.0,
     },
+    consejoPorModalidad: {
+      'Mantenimiento': 'Aplicar 5 ml cada 100 L, de 2 a 3 veces por semana.\n'
+          '• Mantiene el crecimiento estable y continuo.\n'
+          '• Ideal para rutina semanal de mantenimiento.',
+      'Estimulación activa':
+          'Aplicar 10 ml cada 100 L, de 2 a 3 veces por semana.\n'
+              '🌿 Tras podas: estimula brotación y recuperación rápida.\n'
+              '⚡ Activa metabolismo y macollamiento intensivo.',
+    },
   ),
 
-  const Producto(
+  // ── TRATAMIENTOS ─────────────────────────────────────────────
+  Producto(
     id: 'antialgas_h2o2',
     nombre: 'Anti-Algas H₂O₂',
     categoria: 'Tratamiento',
-    descripcionCorta: 'elimina algas oxidando',
+    descripcionCorta: 'Elimina algas oxidando',
     mlPor100L: 20.0,
     aportePor2ml: 1.0,
     objetivoMgL: 1.0,
     unidadAporte: 'ml por aplicación',
     color: '#E74C3C',
-    consejo:
-        'Iniciar con dosis baja. Máx. 20ml/100L con filtro apagado 10-15 min. '
-        'Puede subir a 40ml/100L si no mejora en 2-3 días. '
+    consejo: 'Iniciar con dosis baja. Apagar filtro 10-15 min tras aplicar. '
         'Evitar contacto con piel. No para musgos ni tapizantes.',
     tieneObjetivo: false,
     modalidades: ['Dosis inicial', 'Dosis máxima'],
     mlPorModalidad: {
-      'Dosis inicial': 20.0,
-      'Dosis máxima': 40.0,
+      'Dosis inicial': 10.0,
+      'Dosis máxima': 20.0,
+    },
+    consejoPorModalidad: {
+      'Dosis inicial':
+          'Aplicar 10 ml cada 100 L con filtro apagado 10-15 min.\n'
+              '• Primera aplicación o algas leves.\n'
+              '• Repetir cada 2-3 días si es necesario.',
+      'Dosis máxima': 'Aplicar 20 ml cada 100 L con filtro apagado 10-15 min.\n'
+          '⚠️ Solo si la dosis inicial no tuvo efecto en 2-3 días.\n'
+          '• No usar en acuarios con musgos ni tapizantes.\n'
+          '• Evitar contacto con piel y ojos.',
     },
   ),
-
-  const Producto(
+  Producto(
     id: 'antialgas_co2',
     nombre: 'Anti-Algas+ Carbono (CO₂)',
     categoria: 'Tratamiento',
-    descripcionCorta: ' antialgas y fuente de carbono',
+    descripcionCorta: 'Antialgas y fuente de carbono',
     mlPor100L: 5.0,
     aportePor2ml: 2.0,
     objetivoMgL: 2.0,
     unidadAporte: 'ml por aplicación',
     color: '#27AE60',
-    consejo:
-        'Eliminación de algas: retirar manualmente la mayoría, apagar filtro '
-        '15-20 min y aplicar con jeringa directo en zona afectada. '
-        'Máx. 5ml/100L. Apagar luz o aplicar de noche. Uso diario por 7 días. '
-        'Carbono: 2ml/100L antes de encender luces, uso diario. '
-        'Uso restringido en musgos y tapizantes (puede quemarlos). '
-        'No exceder la dosis recomendada.',
+    consejo: 'No exceder la dosis recomendada. '
+        'Uso restringido en musgos y tapizantes.',
     tieneObjetivo: false,
     modalidades: ['Eliminación de algas', 'Aporte de Carbono'],
     mlPorModalidad: {
       'Eliminación de algas': 5.0,
       'Aporte de Carbono': 2.0,
     },
+    consejoPorModalidad: {
+      'Eliminación de algas':
+          'Aplicar 5 ml cada 100 L directamente sobre las algas.\n'
+              '• Retirar manualmente la mayoría antes de aplicar.\n'
+              '• Apagar filtro 15-20 min y luz durante el tratamiento.\n'
+              '• Uso diario por 7 días. No para musgos ni tapizantes.',
+      'Aporte de Carbono':
+          'Aplicar 2 ml cada 100 L antes de encender las luces.\n'
+              '• Uso diario como fuente de carbono orgánico.\n'
+              '• Estimula el crecimiento de plantas en acuarios sin CO₂.\n'
+              '• Reducir dosis si aparecen algas.',
+    },
   ),
 
   // ── ACONDICIONADORES ─────────────────────────────────────────
-  const Producto(
+  Producto(
     id: 'anticloro',
     nombre: 'Anticloro',
     categoria: 'Acondicionador',
@@ -245,13 +270,12 @@ final List<Producto> productosFerti = [
     modalidades: ['Uso normal'],
     mlPorModalidad: {'Uso normal': 2.5},
   ),
-
-  const Producto(
+  Producto(
     id: 'acondicionador_multivitaminico',
     nombre: 'Acondicionador Multivitamínico',
     categoria: 'Acondicionador',
     descripcionCorta: 'Elimina cloro, cloraminas y metales pesados',
-    mlPor100L: 2.5, // 1ml cada 40L = 2.5ml cada 100L
+    mlPor100L: 2.5,
     aportePor2ml: 1.0,
     objetivoMgL: 1.0,
     unidadAporte: 'dosis',
@@ -261,16 +285,14 @@ final List<Producto> productosFerti = [
         'Neutraliza metales pesados. Seguro para peces e invertebrados.',
     tieneObjetivo: false,
     formatos: ['125ml', '250ml', '500ml', '1000ml', '5000ml'],
-    modalidades: [
-      'Cambio de agua',
-    ],
+    modalidades: ['Cambio de agua'],
     mlPorModalidad: {
-      'Cambio de agua': 2.5, // dosis normal 1ml/40L
+      'Cambio de agua': 2.5,
     },
   ),
 
   // ── BIOLÓGICO ────────────────────────────────────────────────
-  const Producto(
+  Producto(
     id: 'bacterias_vivas',
     nombre: 'Bacterias Vivas',
     categoria: 'Biológico',
@@ -280,8 +302,7 @@ final List<Producto> productosFerti = [
     objetivoMgL: 1.0,
     unidadAporte: 'dosis',
     color: '#E91E63',
-    consejo: 'Acuario nuevo: 10ml/100L. Acuario ciclado: 5ml/100L. '
-        'Usar siempre después de limpiar el filtro o tratar enfermedades. '
+    consejo: 'Usar siempre después de limpiar el filtro o tratar enfermedades. '
         'Verificar amonio y nitritos 2h después.',
     tieneObjetivo: false,
     formatos: ['50ml', '125ml', '225ml', '500ml', '1000ml'],
@@ -290,14 +311,24 @@ final List<Producto> productosFerti = [
       'Acuario nuevo': 10.0,
       'Acuario ciclado': 5.0,
     },
+    consejoPorModalidad: {
+      'Acuario nuevo': 'Aplicar 10 ml cada 100 L en acuario recién montado.\n'
+          '• Acelera el ciclo del nitrógeno desde cero.\n'
+          '• Repetir cada 2 días durante la primera semana.\n'
+          '• Verificar amonio y nitritos a las 2h de aplicar.',
+      'Acuario ciclado': 'Aplicar 5 ml cada 100 L en acuario ya establecido.\n'
+          '• Usar tras limpieza de filtro o tratamiento con medicamentos.\n'
+          '• Repone las bacterias beneficiosas eliminadas.\n'
+          '• Una sola dosis suele ser suficiente.',
+    },
   ),
 ];
 
-/// Productos con testeo de nivel (NPK + hierros)
+// ── GETTERS ───────────────────────────────────────────────────────────────────
+
 List<Producto> get productosTesteables => productosFerti
     .where((p) => p.tieneObjetivo && p.id != 'micronutrientes')
     .toList();
 
-/// Productos adicionales: dosis directa sin testeo
 List<Producto> get productosAdicionales =>
     productosFerti.where((p) => !p.tieneObjetivo).toList();

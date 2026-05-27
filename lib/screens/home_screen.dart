@@ -3,6 +3,7 @@ import 'calculadora_screen.dart';
 import 'guia_screen.dart';
 import 'mediciones_screen.dart';
 import 'productos_screen.dart';
+import 'superheroes_screen.dart'; // ← así debe quedar, con ;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,13 +15,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  // IndexedStack mantiene todas las pantallas vivas en memoria,
-  // así el estado de la calculadora no se pierde al cambiar de pestaña.
   final List<Widget> _screens = const [
     CalculadoraScreen(),
     MedicionesScreen(),
     GuiaScreen(),
     ProductosScreen(),
+    SuperheroesScreen(), // 👈 NUEVO
   ];
 
   @override
@@ -47,12 +47,17 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.menu_book_outlined),
             selectedIcon: Icon(Icons.menu_book),
-            label: 'Guía NPK',
+            label: 'Ferti-Tips',
           ),
           NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined),
             selectedIcon: Icon(Icons.inventory_2),
             label: 'Productos',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.auto_awesome_outlined), // 👈 ícono acorde
+            selectedIcon: Icon(Icons.auto_awesome),
+            label: 'Heroes',
           ),
         ],
       ),

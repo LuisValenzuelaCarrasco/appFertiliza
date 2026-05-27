@@ -1,13 +1,13 @@
 // screens/calculadora_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/producto.dart';
-import '../widgets/resultado_card.dart';
-import '../widgets/producto_selector.dart';
-import '../widgets/fertiliza_app_bar.dart';
-import '../models/medicion.dart';
-import '../services/historial_service.dart';
-import '../services/historial_notifier.dart';
+import 'package:rutina_fertiliza/models/producto.dart';
+import 'package:rutina_fertiliza/widgets/resultado_card.dart';
+import 'package:rutina_fertiliza/widgets/producto_selector.dart';
+import 'package:rutina_fertiliza/widgets/fertiliza_app_bar.dart';
+import 'package:rutina_fertiliza/models/medicion.dart';
+import 'package:rutina_fertiliza/services/historial_service.dart';
+import 'package:rutina_fertiliza/services/historial_notifier.dart';
 
 class CalculadoraScreen extends StatefulWidget {
   const CalculadoraScreen({super.key});
@@ -18,7 +18,6 @@ class CalculadoraScreen extends StatefulWidget {
 
 class _CalculadoraScreenState extends State<CalculadoraScreen> {
   final _litrosController = TextEditingController(text: '100');
-  double get _litros => double.tryParse(_litrosController.text) ?? 100;
 
   bool _mostrarResultados = false;
   bool _isLoading = false;
@@ -93,7 +92,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     setState(() {
       _isLoading = true;
       _mostrarResultados = false;
-      // elimina la línea double _litros = 100;
     });
 
     await Future.delayed(const Duration(milliseconds: 300));
@@ -173,7 +171,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       for (final c in _objetivoControllers.values) {
         c.clear();
       }
-
       _litrosController.text = '100';
       _litrosCalculados = 0;
     });
@@ -390,38 +387,108 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                   const SizedBox(height: 10),
                   ...productosAdicionales.map((p) {
                     final color = _colorDesdeHex(p.color);
-                    return CheckboxListTile(
-                      value: _productosAdicionalesSeleccionados.contains(p.id),
-                      onChanged: (v) => setState(() {
-                        if (v == true) {
-                          _productosAdicionalesSeleccionados.add(p.id);
-                        } else {
-                          _productosAdicionalesSeleccionados.remove(p.id);
-                        }
-                      }),
-                      title: Row(
-                        children: [
-                          Icon(_iconoPorCategoria(p.categoria),
-                              color: color, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
+                    final seleccionado =
+                        _productosAdicionalesSeleccionados.contains(p.id);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CheckboxListTile(
+                          value: seleccionado,
+                          onChanged: (v) => setState(() {
+                            if (v == true) {
+                              _productosAdicionalesSeleccionados.add(p.id);
+                              if (p.modalidades.isNotEmpty) {
+                                _modalidadesSeleccionadas[p.id] =
+                                    p.modalidades.first;
+                              }
+                            } else {
+                              _productosAdicionalesSeleccionados.remove(p.id);
+                            }
+                          }),
+                          title: Row(
+                            children: [
+                              Icon(_iconoPorCategoria(p.categoria),
+                                  color: color, size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(p.nombre,
+                                        style: const TextStyle(fontSize: 13)),
+                                    Text(p.descripcionCorta,
+                                        style: TextStyle(
+                                            fontSize: 10,
+                                            color: cs.onSurfaceVariant)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          activeColor: color,
+                        ),
+                        if (seleccionado && p.modalidades.length > 1)
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(left: 12, bottom: 10),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(p.nombre,
-                                    style: const TextStyle(fontSize: 13)),
-                                Text(p.descripcionCorta,
+                                Text('Modo de uso',
                                     style: TextStyle(
-                                        fontSize: 10,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
                                         color: cs.onSurfaceVariant)),
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: p.modalidades.map((m) {
+                                    final sel =
+                                        (_modalidadesSeleccionadas[p.id] ??
+                                                p.modalidades.first) ==
+                                            m;
+                                    return GestureDetector(
+                                      onTap: () => setState(() =>
+                                          _modalidadesSeleccionadas[p.id] = m),
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 150),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: sel
+                                              ? color.withValues(alpha: 0.15)
+                                              : cs.surfaceContainerHighest,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: sel
+                                                ? color
+                                                : Colors.transparent,
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                        child: Text(m,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: sel
+                                                  ? FontWeight.w700
+                                                  : FontWeight.normal,
+                                              color: sel
+                                                  ? color
+                                                  : cs.onSurfaceVariant,
+                                            )),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      activeColor: color,
+                      ],
                     );
                   }),
                 ],
@@ -495,10 +562,8 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                       key: ValueKey(p.id),
                       producto: p,
                       litros: _litrosCalculados,
-                      modalidadInicial: _modalidadesSnapshot[p.id] ??
+                      modalidad: _modalidadesSnapshot[p.id] ??
                           (p.modalidades.isNotEmpty ? p.modalidades.first : ''),
-                      onModalidadChanged: (m) =>
-                          setState(() => _modalidadesSeleccionadas[p.id] = m),
                     )),
 
           // ── BOTÓN RESTABLECER ─────────────────────────────────
@@ -523,45 +588,24 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   }
 }
 
-// ── Tarjeta resultado producto adicional ──────────────────────────────────────
-// 👈 CORREGIDO: StatefulWidget para que las pestañas respondan y la dosis
-//    se actualice al instante al cambiar modalidad
-
-class _TarjetaProductoAdicional extends StatefulWidget {
+class _TarjetaProductoAdicional extends StatelessWidget {
   final Producto producto;
   final double litros;
-  final String modalidadInicial;
-  final ValueChanged<String> onModalidadChanged;
+  final String modalidad;
 
   const _TarjetaProductoAdicional({
     super.key,
     required this.producto,
     required this.litros,
-    required this.modalidadInicial,
-    required this.onModalidadChanged,
+    required this.modalidad,
   });
-
-  @override
-  State<_TarjetaProductoAdicional> createState() =>
-      _TarjetaProductoAdicionalState();
-}
-
-class _TarjetaProductoAdicionalState extends State<_TarjetaProductoAdicional> {
-  late String _modalidadLocal;
-
-  @override
-  void initState() {
-    super.initState();
-    _modalidadLocal = widget.modalidadInicial;
-  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final color = Color(
-        int.parse('FF${widget.producto.color.replaceAll('#', '')}', radix: 16));
-    final dosis = widget.producto
-        .calcularDosisPorModalidad(widget.litros, _modalidadLocal);
+    final color =
+        Color(int.parse('FF${producto.color.replaceAll('#', '')}', radix: 16));
+    final dosis = producto.calcularDosisPorModalidad(litros, modalidad);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -570,7 +614,6 @@ class _TarjetaProductoAdicionalState extends State<_TarjetaProductoAdicional> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Encabezado ──────────────────────────────
             Row(
               children: [
                 Icon(Icons.medication_liquid_outlined, color: color, size: 18),
@@ -579,12 +622,12 @@ class _TarjetaProductoAdicionalState extends State<_TarjetaProductoAdicional> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(widget.producto.nombre,
+                      Text(producto.nombre,
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: color,
                               fontSize: 15)),
-                      Text(widget.producto.descripcionCorta,
+                      Text(producto.descripcionCorta,
                           style: TextStyle(
                               fontSize: 11, color: cs.onSurfaceVariant)),
                     ],
@@ -592,61 +635,31 @@ class _TarjetaProductoAdicionalState extends State<_TarjetaProductoAdicional> {
                 ),
               ],
             ),
-
             const Divider(height: 16),
-
-            // ── Selector modalidad ───────────────────────
-            if (widget.producto.modalidades.length > 1) ...[
-              Text('Modo de uso',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: cs.onSurfaceVariant)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: widget.producto.modalidades.map((m) {
-                  final sel = m == _modalidadLocal;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() => _modalidadLocal = m); // 👈 actualiza UI
-                      widget.onModalidadChanged(m); // 👈 notifica padre
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: sel
-                            ? color.withValues(alpha: 0.15)
-                            : cs.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: sel ? color : Colors.transparent,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Text(m,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight:
-                                sel ? FontWeight.w700 : FontWeight.normal,
-                            color: sel ? color : cs.onSurfaceVariant,
-                          )),
-                    ),
-                  );
-                }).toList(),
+            if (producto.modalidades.length > 1) ...[
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
+                ),
+                child: Text(modalidad,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: color)),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
             ],
-
-            // ── Resultado ────────────────────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(widget.producto.consejo,
+                  child: Text(
+                      producto.consejoPorModalidad[modalidad] ??
+                          producto.consejo,
                       style: TextStyle(
                           fontSize: 11,
                           color: cs.onSurfaceVariant,
@@ -668,7 +681,7 @@ class _TarjetaProductoAdicionalState extends State<_TarjetaProductoAdicional> {
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
                               color: color)),
-                      Text('para ${widget.litros.toStringAsFixed(0)} L',
+                      Text('para ${litros.toStringAsFixed(0)} L',
                           style: TextStyle(
                               fontSize: 10, color: cs.onSurfaceVariant)),
                     ],
