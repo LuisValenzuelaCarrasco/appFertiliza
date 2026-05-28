@@ -1,13 +1,19 @@
-// screens/mediciones_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/medicion.dart';
 import '../services/historial_service.dart';
 import '../services/historial_notifier.dart';
-import '../widgets/fertiliza_app_bar.dart';
+import '../models/tank_model.dart';
 
 class MedicionesScreen extends StatefulWidget {
-  const MedicionesScreen({super.key});
+  final TankModel tank;
+  final void Function(DateTime fecha)? onIrACalculadoraConFecha;
+
+  const MedicionesScreen({
+    super.key,
+    required this.tank,
+    this.onIrACalculadoraConFecha,
+  });
 
   @override
   State<MedicionesScreen> createState() => _MedicionesScreenState();
@@ -19,6 +25,9 @@ class _MedicionesScreenState extends State<MedicionesScreen>
   bool _cargando = true;
   DateTime _mesActual = DateTime.now();
   DateTime? _diaSeleccionado;
+
+  final Set<String> _seleccionados = {};
+  bool get _modoSeleccion => _seleccionados.isNotEmpty;
 
   @override
   void initState() {
@@ -37,13 +46,11 @@ class _MedicionesScreenState extends State<MedicionesScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _cargar();
-    }
+    if (state == AppLifecycleState.resumed) _cargar();
   }
 
   Future<void> _cargar() async {
-    final data = await HistorialService.cargar();
+    final data = await HistorialService.cargar(widget.tank.id);
     if (!mounted) return;
     setState(() {
       _historial = data;
@@ -51,24 +58,132 @@ class _MedicionesScreenState extends State<MedicionesScreen>
     });
   }
 
+  String _claveNutriente(String medicionId, String nutriente) =>
+      '$medicionId::$nutriente';
+  String _claveEvento(String medicionId) => medicionId;
+
+  bool _nutrienteSeleccionado(String medicionId, String nutriente) =>
+      _seleccionados.contains(_claveNutriente(medicionId, nutriente));
+  bool _eventoSeleccionado(String medicionId) =>
+      _seleccionados.contains(_claveEvento(medicionId));
+
+  void _toggleNutriente(String medicionId, String nutriente) {
+    setState(() {
+      final clave = _claveNutriente(medicionId, nutriente);
+      if (_seleccionados.contains(clave)) {
+        _seleccionados.remove(clave);
+      } else {
+        _seleccionados.add(clave);
+      }
+    });
+  }
+
+  void _toggleEvento(String medicionId) {
+    setState(() {
+      final clave = _claveEvento(medicionId);
+      if (_seleccionados.contains(clave)) {
+        _seleccionados.remove(clave);
+      } else {
+        _seleccionados.add(clave);
+      }
+    });
+  }
+
+  void _cancelarSeleccion() => setState(() => _seleccionados.clear());
+  int get _cantidadSeleccionados => _seleccionados.length;
+
+  Future<void> _eliminarSeleccionados() async {
+    if (_seleccionados.isEmpty) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar elementos'),
+        content: Text(
+          'Se eliminarán $_cantidadSeleccionados '
+          'elemento${_cantidadSeleccionados > 1 ? 's' : ''} seleccionado${_cantidadSeleccionados > 1 ? 's' : ''}. ¿Continuar?',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child:
+                  const Text('Eliminar', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    final clavesNutriente =
+        _seleccionados.where((c) => c.contains('::')).toList();
+    final clavesEvento =
+        _seleccionados.where((c) => !c.contains('::')).toList();
+
+    final Map<String, Set<String>> nutrientesPorMedicion = {};
+    for (final clave in clavesNutriente) {
+      final partes = clave.split('::');
+      nutrientesPorMedicion.putIfAbsent(partes[0], () => {}).add(partes[1]);
+    }
+
+    for (final entry in nutrientesPorMedicion.entries) {
+      final medicion = _historial.firstWhere((m) => m.id == entry.key,
+          orElse: () => throw Exception());
+      final nuevosNiveles = Map<String, double>.from(medicion.niveles)
+        ..removeWhere((k, _) => entry.value.contains(k));
+      final nuevosActuales = Map<String, double>.from(medicion.nivelesActuales)
+        ..removeWhere((k, _) => entry.value.contains(k));
+      final nuevosObjetivos = Map<String, double>.from(medicion.objetivos)
+        ..removeWhere((k, _) => entry.value.contains(k));
+
+      if (nuevosNiveles.isEmpty) {
+        await HistorialService.eliminar(widget.tank.id, entry.key);
+      } else {
+        await HistorialService.actualizar(
+          widget.tank.id,
+          entry.key,
+          Medicion(
+            id: medicion.id,
+            fecha: medicion.fecha,
+            litros: medicion.litros,
+            niveles: nuevosNiveles,
+            nivelesActuales: nuevosActuales,
+            objetivos: nuevosObjetivos,
+            tipoEvento: medicion.tipoEvento,
+            porcentajeCambioAgua: medicion.porcentajeCambioAgua,
+            notasPoda: medicion.notasPoda,
+          ),
+        );
+      }
+    }
+
+    for (final id in clavesEvento) {
+      await HistorialService.eliminar(widget.tank.id, id);
+    }
+
+    setState(() {
+      _historial.removeWhere((m) => clavesEvento.contains(m.id));
+      _seleccionados.clear();
+    });
+
+    await _cargar();
+  }
+
   Future<void> _confirmarLimpiarHoy() async {
     final fecha = _diaSeleccionado ?? DateTime.now();
-
     final registrosDelDia = _historial
-        .where(
-          (m) =>
-              m.fecha.year == fecha.year &&
-              m.fecha.month == fecha.month &&
-              m.fecha.day == fecha.day,
-        )
+        .where((m) =>
+            m.fecha.year == fecha.year &&
+            m.fecha.month == fecha.month &&
+            m.fecha.day == fecha.day)
         .toList();
 
     if (registrosDelDia.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'No hay registros del ${fecha.day}/${fecha.month}/${fecha.year}')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'No hay registros del ${fecha.day}/${fecha.month}/${fecha.year}')));
       return;
     }
 
@@ -79,34 +194,30 @@ class _MedicionesScreenState extends State<MedicionesScreen>
             'Borrar registros del ${fecha.day}/${fecha.month}/${fecha.year}'),
         content: Text(
           'Se eliminarán ${registrosDelDia.length} '
-          'registro${registrosDelDia.length > 1 ? 's' : ''}. '
-          '¿Continuar?',
+          'registro${registrosDelDia.length > 1 ? 's' : ''}. ¿Continuar?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Borrar', style: TextStyle(color: Colors.red)),
-          ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Borrar', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
 
     if (confirmar != true) return;
 
-    await HistorialService.borrarPorFecha(fecha);
+    await HistorialService.borrarPorFecha(widget.tank.id, fecha);
 
     setState(() {
-      _historial.removeWhere(
-        (m) =>
-            m.fecha.year == fecha.year &&
-            m.fecha.month == fecha.month &&
-            m.fecha.day == fecha.day,
-      );
+      _historial.removeWhere((m) =>
+          m.fecha.year == fecha.year &&
+          m.fecha.month == fecha.month &&
+          m.fecha.day == fecha.day);
       _diaSeleccionado = null;
+      _seleccionados.clear();
     });
   }
 
@@ -119,20 +230,17 @@ class _MedicionesScreenState extends State<MedicionesScreen>
             '¿Eliminar este evento? Esta acción no se puede deshacer.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Borrar', style: TextStyle(color: Colors.red)),
-          ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Borrar', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
 
     if (confirmar != true) return;
-
-    await HistorialService.eliminar(medicion.id);
+    await HistorialService.eliminar(widget.tank.id, medicion.id);
     await _cargar();
   }
 
@@ -144,13 +252,11 @@ class _MedicionesScreenState extends State<MedicionesScreen>
         content: Text('¿Eliminar "$nutriente" de este registro?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Borrar', style: TextStyle(color: Colors.red)),
-          ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Borrar', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -165,9 +271,10 @@ class _MedicionesScreenState extends State<MedicionesScreen>
       ..remove(nutriente);
 
     if (nuevosNiveles.isEmpty) {
-      await HistorialService.eliminar(medicion.id);
+      await HistorialService.eliminar(widget.tank.id, medicion.id);
     } else {
       await HistorialService.actualizar(
+        widget.tank.id,
         medicion.id,
         Medicion(
           id: medicion.id,
@@ -195,7 +302,8 @@ class _MedicionesScreenState extends State<MedicionesScreen>
         medicion: medicion,
         nutriente: nutriente,
         onGuardar: (medicionEditada) async {
-          await HistorialService.actualizar(medicion.id, medicionEditada);
+          await HistorialService.actualizar(
+              widget.tank.id, medicion.id, medicionEditada);
           await _cargar();
         },
       ),
@@ -210,8 +318,9 @@ class _MedicionesScreenState extends State<MedicionesScreen>
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _DialogoNuevoEvento(
         dia: dia,
+        litrosIniciales: widget.tank.volume.toStringAsFixed(0),
         onGuardar: (medicion) async {
-          await HistorialService.guardar(medicion);
+          await HistorialService.guardar(widget.tank.id, medicion);
           await _cargar();
         },
       ),
@@ -227,7 +336,8 @@ class _MedicionesScreenState extends State<MedicionesScreen>
       builder: (_) => _DialogoEditarEvento(
         medicion: medicion,
         onGuardar: (medicionEditada) async {
-          await HistorialService.actualizar(medicion.id, medicionEditada);
+          await HistorialService.actualizar(
+              widget.tank.id, medicion.id, medicionEditada);
           await _cargar();
         },
       ),
@@ -277,6 +387,90 @@ class _MedicionesScreenState extends State<MedicionesScreen>
     return '$h:$m';
   }
 
+  // ── AppBar con degradé ──────────────────────────────────────────────────────
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    if (_modoSeleccion) {
+      return AppBar(
+        backgroundColor: cs.primary,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: _cancelarSeleccion,
+        ),
+        title: Text(
+            '$_cantidadSeleccionados seleccionado${_cantidadSeleccionados > 1 ? 's' : ''}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete),
+            tooltip: 'Eliminar seleccionados',
+            onPressed: _eliminarSeleccionados,
+          ),
+        ],
+      );
+    }
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1E8449), Color(0xFF145A32)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              const SizedBox(width: 8),
+              Image.asset(
+                'lib/assets/logotipo/fertilizacompletologotipo.png',
+                height: 32,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.eco, color: Colors.white70, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.tank.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      widget.tank.volumeLabel,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_historial.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.delete_sweep, color: Colors.white),
+                  tooltip: _diaSeleccionado != null
+                      ? 'Borrar registros del ${_diaSeleccionado!.day}/${_diaSeleccionado!.month}'
+                      : 'Borrar registros de hoy',
+                  onPressed: _confirmarLimpiarHoy,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -289,20 +483,7 @@ class _MedicionesScreenState extends State<MedicionesScreen>
 
     return Scaffold(
       backgroundColor: cs.surface,
-      appBar: FertilizaAppBar(
-        titulo: 'HISTORIAL',
-        subtitulo: 'Registro de abonado',
-        actions: [
-          if (_historial.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_sweep, color: Colors.white),
-              tooltip: _diaSeleccionado != null
-                  ? 'Borrar registros del ${_diaSeleccionado!.day}/${_diaSeleccionado!.month}'
-                  : 'Borrar registros de hoy',
-              onPressed: _confirmarLimpiarHoy,
-            ),
-        ],
-      ),
+      appBar: _buildAppBar(context),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -310,7 +491,6 @@ class _MedicionesScreenState extends State<MedicionesScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Navegación mes ─────────────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -320,6 +500,7 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                           _mesActual =
                               DateTime(_mesActual.year, _mesActual.month - 1);
                           _diaSeleccionado = null;
+                          _seleccionados.clear();
                         }),
                       ),
                       Text(
@@ -333,13 +514,12 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                           _mesActual =
                               DateTime(_mesActual.year, _mesActual.month + 1);
                           _diaSeleccionado = null;
+                          _seleccionados.clear();
                         }),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 8),
-
                   Row(
                     children: ['D', 'L', 'M', 'M', 'J', 'V', 'S']
                         .map((d) => Expanded(
@@ -353,10 +533,7 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                             ))
                         .toList(),
                   ),
-
                   const SizedBox(height: 6),
-
-                  // ── Cuadrícula del calendario ───────────────────
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(8),
@@ -388,8 +565,10 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                                   _diaSeleccionado?.year == dia.year;
 
                           return GestureDetector(
-                            onTap: () => setState(() =>
-                                _diaSeleccionado = seleccionado ? null : dia),
+                            onTap: () => setState(() {
+                              _seleccionados.clear();
+                              _diaSeleccionado = seleccionado ? null : dia;
+                            }),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               decoration: BoxDecoration(
@@ -451,9 +630,7 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
                   Wrap(
                     spacing: 16,
                     runSpacing: 6,
@@ -465,19 +642,18 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                       _LeyendaItem(color: Colors.amber.shade600, label: 'Nota'),
                     ],
                   ),
-
                   const SizedBox(height: 16),
-
                   if (_diaSeleccionado != null)
-                    OutlinedButton.icon(
-                      onPressed: () => _mostrarDialogoEvento(_diaSeleccionado!),
-                      icon: const Icon(Icons.add),
-                      label: Text(
-                          'Agregar evento el ${_diaSeleccionado!.day}/${_diaSeleccionado!.month}'),
+                    _BotonAgregarEvento(
+                      dia: _diaSeleccionado!,
+                      onAgregarOtro: () =>
+                          _mostrarDialogoEvento(_diaSeleccionado!),
+                      onAgregarAbono: widget.onIrACalculadoraConFecha != null
+                          ? () => widget
+                              .onIrACalculadoraConFecha!(_diaSeleccionado!)
+                          : null,
                     ),
-
                   const SizedBox(height: 12),
-
                   if (_diaSeleccionado != null) ...[
                     if (medicionesSeleccionadas.isEmpty)
                       Padding(
@@ -488,15 +664,47 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                                 color: cs.onSurfaceVariant, fontSize: 13)),
                       )
                     else ...[
-                      Text(
-                        '${medicionesSeleccionadas.length == 1 ? '1 evento' : '${medicionesSeleccionadas.length} eventos'} — ${_diaSeleccionado!.day}/${_diaSeleccionado!.month}/${_diaSeleccionado!.year}',
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w700),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${medicionesSeleccionadas.length == 1 ? '1 evento' : '${medicionesSeleccionadas.length} eventos'} — ${_diaSeleccionado!.day}/${_diaSeleccionado!.month}/${_diaSeleccionado!.year}',
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                          if (!_modoSeleccion)
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  for (final m in medicionesSeleccionadas) {
+                                    if (m.tipoEvento == TipoEvento.abono) {
+                                      for (final n in m.niveles.keys) {
+                                        _seleccionados
+                                            .add(_claveNutriente(m.id, n));
+                                      }
+                                    } else {
+                                      _seleccionados.add(_claveEvento(m.id));
+                                    }
+                                  }
+                                });
+                              },
+                              icon: const Icon(Icons.checklist, size: 16),
+                              label: const Text('Seleccionar todo',
+                                  style: TextStyle(fontSize: 12)),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       ...medicionesSeleccionadas.map((m) => _TarjetaEvento(
                             m: m,
                             hora: _formatHora(m.fecha),
+                            modoSeleccion: _modoSeleccion,
+                            eventoSeleccionado: _eventoSeleccionado(m.id),
+                            onToggleEvento: () => _toggleEvento(m.id),
+                            nutrienteSeleccionado: (nutriente) =>
+                                _nutrienteSeleccionado(m.id, nutriente),
+                            onToggleNutriente: (nutriente) =>
+                                _toggleNutriente(m.id, nutriente),
                             onEditar: () => _mostrarDialogoEditar(m),
                             onBorrar: () => _confirmarBorrarEvento(m),
                             onBorrarNutriente: (nutriente) =>
@@ -504,6 +712,23 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                             onEditarNutriente: (nutriente) =>
                                 _editarNutriente(m, nutriente),
                           )),
+                      if (_modoSeleccion)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: _eliminarSeleccionados,
+                              icon: const Icon(Icons.delete),
+                              label: Text(
+                                  'Eliminar $_cantidadSeleccionados seleccionado${_cantidadSeleccionados > 1 ? 's' : ''}'),
+                            ),
+                          ),
+                        ),
                     ],
                   ] else if (_historial.isEmpty)
                     Center(
@@ -533,7 +758,6 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                         child: Text('Toca un día para ver o agregar eventos',
                             style: TextStyle(
                                 fontSize: 13, color: cs.onSurfaceVariant))),
-
                   const SizedBox(height: 40),
                 ],
               ),
@@ -577,9 +801,52 @@ class _LeyendaItem extends StatelessWidget {
       );
 }
 
+class _MiniCheckbox extends StatelessWidget {
+  final bool seleccionado;
+  final VoidCallback onTap;
+  final Color? color;
+
+  const _MiniCheckbox({
+    required this.seleccionado,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final c = color ?? Colors.red.shade400;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: seleccionado ? c : Colors.transparent,
+          border: Border.all(
+            color:
+                seleccionado ? c : cs.onSurfaceVariant.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+        ),
+        child: seleccionado
+            ? const Icon(Icons.check, size: 13, color: Colors.white)
+            : null,
+      ),
+    );
+  }
+}
+
 class _TarjetaEvento extends StatelessWidget {
   final Medicion m;
   final String hora;
+  final bool modoSeleccion;
+  final bool eventoSeleccionado;
+  final VoidCallback onToggleEvento;
+  final bool Function(String nutriente) nutrienteSeleccionado;
+  final void Function(String nutriente) onToggleNutriente;
   final VoidCallback onEditar;
   final VoidCallback onBorrar;
   final Future<void> Function(String nutriente) onBorrarNutriente;
@@ -588,6 +855,11 @@ class _TarjetaEvento extends StatelessWidget {
   const _TarjetaEvento({
     required this.m,
     required this.hora,
+    required this.modoSeleccion,
+    required this.eventoSeleccionado,
+    required this.onToggleEvento,
+    required this.nutrienteSeleccionado,
+    required this.onToggleNutriente,
     required this.onEditar,
     required this.onBorrar,
     required this.onBorrarNutriente,
@@ -597,7 +869,6 @@ class _TarjetaEvento extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
     IconData icono;
     Color color;
     String titulo;
@@ -621,276 +892,313 @@ class _TarjetaEvento extends StatelessWidget {
         titulo = 'Nota';
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Cabecera ──────────────────────────────────────────
-            Row(
+    final algunNutrienteSeleccionado = m.tipoEvento == TipoEvento.abono &&
+        m.niveles.keys.any((n) => nutrienteSeleccionado(n));
+
+    return GestureDetector(
+      onLongPress: m.tipoEvento == TipoEvento.abono
+          ? () {
+              for (final n in m.niveles.keys) {
+                onToggleNutriente(n);
+              }
+            }
+          : onToggleEvento,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: (eventoSeleccionado || algunNutrienteSeleccionado)
+              ? Border.all(color: Colors.red.shade400, width: 2)
+              : null,
+          color: (eventoSeleccionado || algunNutrienteSeleccionado)
+              ? Colors.red.withValues(alpha: 0.05)
+              : Colors.transparent,
+        ),
+        child: Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icono, color: color, size: 16),
-                const SizedBox(width: 6),
-                Text(titulo,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: color,
-                        fontSize: 14)),
-                const Spacer(),
-                Text(hora,
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                // Para tipos que NO son abono: botones editar/borrar en cabecera
-                if (m.tipoEvento != TipoEvento.abono) ...[
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: onEditar,
-                    child: Icon(Icons.edit_outlined,
-                        size: 25, color: cs.onSurfaceVariant),
+                Row(
+                  children: [
+                    if (m.tipoEvento != TipoEvento.abono) ...[
+                      _MiniCheckbox(
+                        seleccionado: eventoSeleccionado,
+                        onTap: onToggleEvento,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Icon(icono, color: color, size: 16),
+                    const SizedBox(width: 6),
+                    Text(titulo,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: color,
+                            fontSize: 14)),
+                    const Spacer(),
+                    Text(hora,
+                        style: TextStyle(
+                            fontSize: 12, color: cs.onSurfaceVariant)),
+                    if (m.tipoEvento != TipoEvento.abono && !modoSeleccion) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: onEditar,
+                        child: Icon(Icons.edit_outlined,
+                            size: 25, color: cs.onSurfaceVariant),
+                      ),
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTap: onBorrar,
+                        child: Icon(Icons.delete_outline,
+                            size: 25, color: Colors.red.shade400),
+                      ),
+                    ],
+                  ],
+                ),
+                if (m.tipoEvento == TipoEvento.abono) ...[
+                  const Divider(height: 14),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(20)),
+                    child: Text('${m.litros.toStringAsFixed(0)} L',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.w600)),
                   ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: onBorrar,
-                    child: Icon(Icons.delete_outline,
-                        size: 25, color: Colors.red.shade400),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const SizedBox(width: 28),
+                      const Expanded(child: SizedBox()),
+                      SizedBox(
+                        width: 72,
+                        child: Text('medido',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 10, color: cs.onSurfaceVariant)),
+                      ),
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        width: 72,
+                        child: Text('objetivo',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 10, color: cs.onSurfaceVariant)),
+                      ),
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        width: 56,
+                        child: Text('ml agr.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 10, color: cs.onSurfaceVariant)),
+                      ),
+                      const SizedBox(width: 60),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ...m.niveles.entries.map((e) {
+                    final actual = m.nivelesActuales[e.key];
+                    final objetivo = m.objetivos[e.key];
+                    final agregue = e.value;
+                    final estaSeleccionado = nutrienteSeleccionado(e.key);
+
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      decoration: BoxDecoration(
+                        color: estaSeleccionado
+                            ? Colors.red.withValues(alpha: 0.06)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          const Divider(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              _MiniCheckbox(
+                                seleccionado: estaSeleccionado,
+                                onTap: () => onToggleNutriente(e.key),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(e.key,
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: estaSeleccionado
+                                            ? Colors.red.shade400
+                                            : null)),
+                              ),
+                              SizedBox(
+                                width: 72,
+                                child: Center(
+                                  child: actual != null
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: cs.surfaceContainerHighest,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '${actual.toStringAsFixed(1)} mg/L',
+                                            style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                                color: cs.onSurfaceVariant),
+                                          ),
+                                        )
+                                      : Text('—',
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              color: cs.onSurfaceVariant
+                                                  .withValues(alpha: 0.4))),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                width: 72,
+                                child: Center(
+                                  child: objetivo != null
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green
+                                                .withValues(alpha: 0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '${objetivo.toStringAsFixed(1)} mg/L',
+                                            style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.green.shade700),
+                                          ),
+                                        )
+                                      : Text('—',
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              color: cs.onSurfaceVariant
+                                                  .withValues(alpha: 0.4))),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                width: 56,
+                                child: Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: cs.primary.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                        '${agregue.toStringAsFixed(1)} ml',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            color: cs.primary)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              if (!modoSeleccion) ...[
+                                GestureDetector(
+                                  onTap: () => onEditarNutriente(e.key),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(Icons.edit_outlined,
+                                        size: 20, color: cs.onSurfaceVariant),
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                GestureDetector(
+                                  onTap: () => onBorrarNutriente(e.key),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(Icons.delete_outline,
+                                        size: 20, color: Colors.red.shade400),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 4),
+                ],
+                if (m.tipoEvento == TipoEvento.cambioAgua &&
+                    m.porcentajeCambioAgua != null) ...[
+                  const Divider(height: 14),
+                  Row(
+                    children: [
+                      Text('Cambio: ',
+                          style: TextStyle(
+                              fontSize: 13, color: cs.onSurfaceVariant)),
+                      Text('${m.porcentajeCambioAgua!.toStringAsFixed(0)}%',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.blue.shade400)),
+                      Text('  de ${m.litros.toStringAsFixed(0)} L',
+                          style: TextStyle(
+                              fontSize: 13, color: cs.onSurfaceVariant)),
+                      Text(
+                          '  = ${(m.litros * m.porcentajeCambioAgua! / 100).toStringAsFixed(0)} L cambiados',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.blue.shade400)),
+                    ],
+                  ),
+                ],
+                if (m.tipoEvento == TipoEvento.poda &&
+                    m.notasPoda != null &&
+                    m.notasPoda!.isNotEmpty) ...[
+                  const Divider(height: 14),
+                  Text(m.notasPoda!, style: const TextStyle(fontSize: 13)),
+                ],
+                if (m.tipoEvento == TipoEvento.nota &&
+                    m.notasPoda != null &&
+                    m.notasPoda!.isNotEmpty) ...[
+                  const Divider(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade600.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: Colors.amber.shade600.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(m.notasPoda!,
+                        style: const TextStyle(fontSize: 13, height: 1.45)),
                   ),
                 ],
               ],
             ),
-
-            // ── Abono ────────────────────────────────────────────
-            if (m.tipoEvento == TipoEvento.abono) ...[
-              const Divider(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                    color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(20)),
-                child: Text('${m.litros.toStringAsFixed(0)} L',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w600)),
-              ),
-              const SizedBox(height: 10),
-
-              // Encabezados de columnas
-              Row(
-                children: [
-                  const Expanded(child: SizedBox()),
-                  SizedBox(
-                    width: 72,
-                    child: Text('medido',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 10, color: cs.onSurfaceVariant)),
-                  ),
-                  const SizedBox(width: 4),
-                  SizedBox(
-                    width: 72,
-                    child: Text('objetivo',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 10, color: cs.onSurfaceVariant)),
-                  ),
-                  const SizedBox(width: 4),
-                  SizedBox(
-                    width: 56,
-                    child: Text('ml agr.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 10, color: cs.onSurfaceVariant)),
-                  ),
-                  const SizedBox(width: 60),
-                ],
-              ),
-              const SizedBox(height: 4),
-
-              // Filas de nutrientes con botones individuales
-              ...m.niveles.entries.map((e) {
-                final actual = m.nivelesActuales[e.key];
-                final objetivo = m.objetivos[e.key];
-                final agregue = e.value;
-                return Column(
-                  children: [
-                    const Divider(height: 12),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Nombre nutriente
-                        Expanded(
-                          child: Text(e.key,
-                              style: const TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w600)),
-                        ),
-
-                        // Medido
-                        SizedBox(
-                          width: 72,
-                          child: Center(
-                            child: actual != null
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: cs.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '${actual.toStringAsFixed(1)} mg/L',
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: cs.onSurfaceVariant),
-                                    ),
-                                  )
-                                : Text('—',
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: cs.onSurfaceVariant
-                                            .withValues(alpha: 0.4))),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-
-                        // Objetivo
-                        SizedBox(
-                          width: 72,
-                          child: Center(
-                            child: objetivo != null
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          Colors.green.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '${objetivo.toStringAsFixed(1)} mg/L',
-                                      style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.green.shade700),
-                                    ),
-                                  )
-                                : Text('—',
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: cs.onSurfaceVariant
-                                            .withValues(alpha: 0.4))),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-
-                        // ml agregados
-                        SizedBox(
-                          width: 56,
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: cs.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text('${agregue.toStringAsFixed(1)} ml',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      color: cs.primary)),
-                            ),
-                          ),
-                        ),
-
-                        // ── Botones editar / borrar por fila ──────
-                        const SizedBox(width: 6),
-                        GestureDetector(
-                          onTap: () => onEditarNutriente(e.key),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: Icon(Icons.edit_outlined,
-                                size: 20, color: cs.onSurfaceVariant),
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        GestureDetector(
-                          onTap: () => onBorrarNutriente(e.key),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: Icon(Icons.delete_outline,
-                                size: 20, color: Colors.red.shade400),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              }),
-              const SizedBox(height: 4),
-            ],
-
-            // ── Cambio de agua ───────────────────────────────────
-            if (m.tipoEvento == TipoEvento.cambioAgua &&
-                m.porcentajeCambioAgua != null) ...[
-              const Divider(height: 14),
-              Row(
-                children: [
-                  Text('Cambio: ',
-                      style:
-                          TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-                  Text('${m.porcentajeCambioAgua!.toStringAsFixed(0)}%',
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.blue.shade400)),
-                  Text('  de ${m.litros.toStringAsFixed(0)} L',
-                      style:
-                          TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-                  Text(
-                      '  = ${(m.litros * m.porcentajeCambioAgua! / 100).toStringAsFixed(0)} L cambiados',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.blue.shade400)),
-                ],
-              ),
-            ],
-
-            // ── Poda ─────────────────────────────────────────────
-            if (m.tipoEvento == TipoEvento.poda &&
-                m.notasPoda != null &&
-                m.notasPoda!.isNotEmpty) ...[
-              const Divider(height: 14),
-              Text(m.notasPoda!, style: const TextStyle(fontSize: 13)),
-            ],
-
-            // ── Nota ─────────────────────────────────────────────
-            if (m.tipoEvento == TipoEvento.nota &&
-                m.notasPoda != null &&
-                m.notasPoda!.isNotEmpty) ...[
-              const Divider(height: 14),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade600.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: Colors.amber.shade600.withValues(alpha: 0.3)),
-                ),
-                child: Text(m.notasPoda!,
-                    style: const TextStyle(fontSize: 13, height: 1.45)),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ── Diálogo editar nutriente individual ──────────────────────────────────────
+// ── Diálogo editar nutriente ──────────────────────────────────────────────────
 
 class _DialogoEditarNutriente extends StatefulWidget {
   final Medicion medicion;
@@ -938,7 +1246,6 @@ class _DialogoEditarNutrienteState extends State<_DialogoEditarNutriente> {
     setState(() => _guardando = true);
     final m = widget.medicion;
     final n = widget.nutriente;
-
     final nuevosNiveles = Map<String, double>.from(m.niveles)
       ..[n] = double.tryParse(_mlController.text) ?? 0;
     final nuevosActuales = Map<String, double>.from(m.nivelesActuales)
@@ -1105,15 +1412,9 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
     _litrosController.dispose();
     _porcentajeController.dispose();
     _notasController.dispose();
-    for (final c in _mlControllers.values) {
-      c.dispose();
-    }
-    for (final c in _medidoControllers.values) {
-      c.dispose();
-    }
-    for (final c in _objetivoControllers.values) {
-      c.dispose();
-    }
+    for (final c in _mlControllers.values) c.dispose();
+    for (final c in _medidoControllers.values) c.dispose();
+    for (final c in _objetivoControllers.values) c.dispose();
     super.dispose();
   }
 
@@ -1155,7 +1456,6 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final m = widget.medicion;
-
     IconData icono;
     Color color;
     String titulo;
@@ -1342,8 +1642,13 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
 
 class _DialogoNuevoEvento extends StatefulWidget {
   final DateTime dia;
+  final String litrosIniciales;
   final Future<void> Function(Medicion) onGuardar;
-  const _DialogoNuevoEvento({required this.dia, required this.onGuardar});
+  const _DialogoNuevoEvento({
+    required this.dia,
+    required this.litrosIniciales,
+    required this.onGuardar,
+  });
 
   @override
   State<_DialogoNuevoEvento> createState() => _DialogoNuevoEventoState();
@@ -1351,10 +1656,16 @@ class _DialogoNuevoEvento extends StatefulWidget {
 
 class _DialogoNuevoEventoState extends State<_DialogoNuevoEvento> {
   TipoEvento _tipo = TipoEvento.cambioAgua;
-  final _litrosController = TextEditingController(text: '100');
+  late final TextEditingController _litrosController;
   final _porcentajeController = TextEditingController(text: '30');
   final _notasController = TextEditingController();
   bool _guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _litrosController = TextEditingController(text: widget.litrosIniciales);
+  }
 
   @override
   void dispose() {
@@ -1472,8 +1783,7 @@ class _DialogoNuevoEventoState extends State<_DialogoNuevoEvento> {
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
                   labelText: 'Escribe tu nota',
-                  hintText:
-                      'Aqui comentaras Ej: Limpié el filtro,\ncambié el sustrato,\nagregué CO₂...',
+                  hintText: 'Ej: Limpié el filtro, cambié el sustrato...',
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12)),
                   contentPadding: const EdgeInsets.all(12),
@@ -1496,6 +1806,70 @@ class _DialogoNuevoEventoState extends State<_DialogoNuevoEvento> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── _BotonAgregarEvento ───────────────────────────────────────────────────────
+
+class _BotonAgregarEvento extends StatelessWidget {
+  final DateTime dia;
+  final VoidCallback onAgregarOtro;
+  final VoidCallback? onAgregarAbono;
+
+  const _BotonAgregarEvento({
+    required this.dia,
+    required this.onAgregarOtro,
+    this.onAgregarAbono,
+  });
+
+  bool get _esPasado {
+    final hoy = DateTime.now();
+    final soloHoy = DateTime(hoy.year, hoy.month, hoy.day);
+    final soloDia = DateTime(dia.year, dia.month, dia.day);
+    return soloDia.isBefore(soloHoy);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final label = '${dia.day}/${dia.month}/${dia.year}';
+
+    if (!_esPasado || onAgregarAbono == null) {
+      return OutlinedButton.icon(
+        onPressed: onAgregarOtro,
+        icon: const Icon(Icons.add),
+        label: Text('Agregar evento el $label'),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FilledButton.icon(
+          onPressed: onAgregarAbono,
+          icon: const Icon(Icons.science, size: 18),
+          label: Text('Agregar abono del $label'),
+          style: FilledButton.styleFrom(
+            backgroundColor: cs.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: onAgregarOtro,
+          icon: const Icon(Icons.add, size: 18),
+          label: Text('Otro evento el $label'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ],
     );
   }
 }

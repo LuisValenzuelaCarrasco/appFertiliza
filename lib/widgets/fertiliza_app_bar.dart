@@ -25,7 +25,7 @@ class FertilizaAppBar extends StatelessWidget implements PreferredSizeWidget {
         : const [Color(0xFF1E8449), Color(0xFF145A32)];
 
     return AppBar(
-      automaticallyImplyLeading: false,
+      automaticallyImplyLeading: true,
       toolbarHeight: kToolbarHeight,
       backgroundColor: Colors.transparent,
       elevation: 0,

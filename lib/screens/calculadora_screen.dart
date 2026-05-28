@@ -1,4 +1,3 @@
-// screens/calculadora_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rutina_fertiliza/models/producto.dart';
@@ -8,16 +7,27 @@ import 'package:rutina_fertiliza/widgets/fertiliza_app_bar.dart';
 import 'package:rutina_fertiliza/models/medicion.dart';
 import 'package:rutina_fertiliza/services/historial_service.dart';
 import 'package:rutina_fertiliza/services/historial_notifier.dart';
+import '../models/tank_model.dart';
 
 class CalculadoraScreen extends StatefulWidget {
-  const CalculadoraScreen({super.key});
+  final TankModel tank;
+
+  /// Si se pasa una fecha, el cálculo se registrará en ese día en lugar de hoy.
+  /// Usado cuando el usuario navega desde el historial de un día pasado.
+  final DateTime? fechaOverride;
+
+  const CalculadoraScreen({
+    super.key,
+    required this.tank,
+    this.fechaOverride,
+  });
 
   @override
   State<CalculadoraScreen> createState() => _CalculadoraScreenState();
 }
 
 class _CalculadoraScreenState extends State<CalculadoraScreen> {
-  final _litrosController = TextEditingController(text: '100');
+  late final TextEditingController _litrosController;
 
   bool _mostrarResultados = false;
   bool _isLoading = false;
@@ -51,6 +61,32 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   final Map<String, String> _modalidadesSeleccionadas = {};
 
   @override
+  void initState() {
+    super.initState();
+    _litrosController = TextEditingController(
+      text: widget.tank.volume.toStringAsFixed(0),
+    );
+  }
+
+  /// Cuando cambia fechaOverride desde HomeScreen (al cambiar de tab),
+  /// reiniciamos la calculadora para que quede limpia con la nueva fecha.
+  @override
+  void didUpdateWidget(CalculadoraScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.fechaOverride != oldWidget.fechaOverride &&
+        widget.fechaOverride != null) {
+      // Limpiar resultados previos pero mantener configuración
+      setState(() {
+        _mostrarResultados = false;
+        _productosCalculados.clear();
+        _adicionalesCalculados.clear();
+        _nivelesSnapshot.clear();
+        _modalidadesSnapshot.clear();
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _litrosController.dispose();
     for (final c in _nivelControllers.values) {
@@ -71,6 +107,18 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   String _modalidadActual(Producto p) {
     return _modalidadesSeleccionadas[p.id] ??
         (p.modalidades.isNotEmpty ? p.modalidades.first : '');
+  }
+
+  /// Construye la fecha de registro:
+  /// - Si hay fechaOverride (día pasado), usa ese día con la hora actual.
+  /// - Si no, usa DateTime.now().
+  DateTime _fechaRegistro() {
+    final ahora = DateTime.now();
+    if (widget.fechaOverride != null) {
+      final f = widget.fechaOverride!;
+      return DateTime(f.year, f.month, f.day, ahora.hour, ahora.minute);
+    }
+    return ahora;
   }
 
   Future<void> _calcular() async {
@@ -122,13 +170,17 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     }
 
     try {
-      await HistorialService.guardar(Medicion(
-        fecha: DateTime.now(),
-        litros: litros,
-        niveles: niveles,
-        nivelesActuales: nivelesActuales,
-        objetivos: objetivosGuardados,
-      ));
+      await HistorialService.guardar(
+        widget.tank.id,
+        Medicion(
+          // ✅ Usa la fecha del día seleccionado si viene del historial
+          fecha: _fechaRegistro(),
+          litros: litros,
+          niveles: niveles,
+          nivelesActuales: nivelesActuales,
+          objetivos: objetivosGuardados,
+        ),
+      );
       historialNotifier.value++;
     } catch (e) {
       debugPrint('❌ Error historial: $e');
@@ -171,7 +223,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       for (final c in _objetivoControllers.values) {
         c.clear();
       }
-      _litrosController.text = '100';
+      _litrosController.text = widget.tank.volume.toStringAsFixed(0);
       _litrosCalculados = 0;
     });
   }
@@ -226,6 +278,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     final cs = Theme.of(context).colorScheme;
     final totalCalculados =
         _productosCalculados.length + _adicionalesCalculados.length;
+    final fechaOverride = widget.fechaOverride;
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -236,7 +289,34 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── HEADER ───────────────────────────────────────────
+          // ── Banner de fecha si viene del historial ────────────────────────
+          if (fechaOverride != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: cs.primary.withValues(alpha: 0.4), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.history, color: cs.primary, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Registrando abono para el '
+                      '${fechaOverride.day}/${fechaOverride.month}/${fechaOverride.year}',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onPrimaryContainer),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
@@ -261,8 +341,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
               ],
             ),
           ),
-
-          // ── LITROS ───────────────────────────────────────────
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -306,10 +384,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 12),
-
-          // ── PRODUCTOS NPK / HIERROS ───────────────────────────
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -361,10 +436,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 12),
-
-          // ── OTROS PRODUCTOS ───────────────────────────────────
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -495,10 +567,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 12),
-
-          // ── BOTÓN CALCULAR ────────────────────────────────────
           ElevatedButton.icon(
             onPressed: _isLoading ? null : _calcular,
             icon: _isLoading
@@ -510,10 +579,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                 : const Icon(Icons.calculate),
             label: Text(_isLoading ? 'Calculando...' : 'Calcular dosis'),
           ),
-
           const SizedBox(height: 12),
-
-          // ── RESUMEN ───────────────────────────────────────────
           if (_mostrarResultados)
             Card(
               color: cs.primary,
@@ -530,10 +596,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                 ),
               ),
             ),
-
           const SizedBox(height: 10),
-
-          // ── RESULTADOS NPK / HIERROS ──────────────────────────
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 400),
             child: _mostrarResultados
@@ -553,8 +616,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                   )
                 : const SizedBox(),
           ),
-
-          // ── RESULTADOS OTROS PRODUCTOS ────────────────────────
           if (_mostrarResultados)
             ...productosAdicionales
                 .where((p) => _adicionalesCalculados.contains(p.id))
@@ -565,8 +626,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                       modalidad: _modalidadesSnapshot[p.id] ??
                           (p.modalidades.isNotEmpty ? p.modalidades.first : ''),
                     )),
-
-          // ── BOTÓN RESTABLECER ─────────────────────────────────
           if (_mostrarResultados) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
@@ -580,7 +639,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
               ),
             ),
           ],
-
           const SizedBox(height: 40),
         ],
       ),

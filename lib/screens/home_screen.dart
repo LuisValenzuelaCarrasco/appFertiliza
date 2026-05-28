@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import '../models/tank_model.dart';
 import 'calculadora_screen.dart';
 import 'guia_screen.dart';
 import 'mediciones_screen.dart';
 import 'productos_screen.dart';
-import 'superheroes_screen.dart'; // ← así debe quedar, con ;
+import 'superheroes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final TankModel tank;
+  const HomeScreen({super.key, required this.tank});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -14,25 +16,43 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  DateTime? _fechaOverride;
 
-  final List<Widget> _screens = const [
-    CalculadoraScreen(),
-    MedicionesScreen(),
-    GuiaScreen(),
-    ProductosScreen(),
-    SuperheroesScreen(), // 👈 NUEVO
-  ];
+  void _irACalculadoraConFecha(DateTime fecha) {
+    setState(() {
+      _fechaOverride = fecha;
+      _selectedIndex = 0;
+    });
+  }
+
+  void _onTabSelected(int index) {
+    setState(() {
+      _selectedIndex = index;
+      if (index != 0) _fechaOverride = null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
+    final screens = [
+      CalculadoraScreen(
+        tank: widget.tank,
+        fechaOverride: _fechaOverride,
       ),
+      MedicionesScreen(
+        tank: widget.tank,
+        onIrACalculadoraConFecha: _irACalculadoraConFecha,
+      ),
+      GuiaScreen(),
+      ProductosScreen(),
+      SuperheroesScreen(),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(index: _selectedIndex, children: screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+        onDestinationSelected: _onTabSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.calculate_outlined),
@@ -55,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Productos',
           ),
           NavigationDestination(
-            icon: Icon(Icons.auto_awesome_outlined), // 👈 ícono acorde
+            icon: Icon(Icons.auto_awesome_outlined),
             selectedIcon: Icon(Icons.auto_awesome),
             label: 'Heroes',
           ),
