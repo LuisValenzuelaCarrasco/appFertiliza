@@ -804,18 +804,15 @@ class _LeyendaItem extends StatelessWidget {
 class _MiniCheckbox extends StatelessWidget {
   final bool seleccionado;
   final VoidCallback onTap;
-  final Color? color;
 
   const _MiniCheckbox({
     required this.seleccionado,
     required this.onTap,
-    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final c = color ?? Colors.red.shade400;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -824,10 +821,11 @@ class _MiniCheckbox extends StatelessWidget {
         height: 20,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: seleccionado ? c : Colors.transparent,
+          color: seleccionado ? Colors.red.shade400 : Colors.transparent,
           border: Border.all(
-            color:
-                seleccionado ? c : cs.onSurfaceVariant.withValues(alpha: 0.4),
+            color: seleccionado
+                ? Colors.red.shade400
+                : cs.onSurfaceVariant.withValues(alpha: 0.4),
             width: 1.5,
           ),
         ),
@@ -1412,9 +1410,15 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
     _litrosController.dispose();
     _porcentajeController.dispose();
     _notasController.dispose();
-    for (final c in _mlControllers.values) c.dispose();
-    for (final c in _medidoControllers.values) c.dispose();
-    for (final c in _objetivoControllers.values) c.dispose();
+    for (final c in _mlControllers.values) {
+      c.dispose();
+    }
+    for (final c in _medidoControllers.values) {
+      c.dispose();
+    }
+    for (final c in _objetivoControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 

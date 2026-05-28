@@ -210,14 +210,16 @@ class _TankCardState extends State<_TankCard> {
                           fit: _imageFit,
                           errorBuilder: (_, __, ___) {
                             return Container(
-                              color: const Color(0xFF1A5276).withOpacity(0.15),
+                              color: const Color(0xFF5DADE2)
+                                  .withValues(alpha: 0.15),
                               child: const Icon(Icons.broken_image,
                                   size: 56, color: Color(0xFF1A5276)),
                             );
                           },
                         )
                       : Container(
-                          color: const Color(0xFF1A5276).withOpacity(0.15),
+                          color:
+                              const Color(0xFF5DADE2).withValues(alpha: 0.15),
                           child: const Icon(Icons.water,
                               size: 56, color: Color(0xFF1A5276)),
                         ),
