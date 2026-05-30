@@ -1,0 +1,15 @@
+workflows:
+  ios-simulator:
+    name: iOS Simulator Build
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+    scripts:
+      - name: Build iOS Simulator
+        script: |
+          flutter build ios --simulator --debug
+          cd build/ios/iphonesimulator
+          zip -r Runner.app.zip Runner.app
+    artifacts:
+      - build/ios/iphonesimulator/Runner.app.zip
+      
