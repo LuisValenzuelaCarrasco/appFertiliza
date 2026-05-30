@@ -2,7 +2,7 @@ name: rutina_fertiliza
 description: Calculadora de abonado para acuarios plantados - Fertiliza Chile
 
 publish_to: 'none'
-version: 2.0.0
+version: 2.0.2+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
