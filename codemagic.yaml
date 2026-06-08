@@ -13,10 +13,7 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files com.fertiliza.app \
-            --type IOS_APP_STORE \
-            --create
-          keychain add-certificates
+          keychain add-certificates --certificate /Users/builder/Library/MobileDevice/Provisioning\ Profiles/FertilizaDistribution
           xcode-project use-profiles
       - name: Flutter build
         script: |
@@ -26,5 +23,5 @@ workflows:
       - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
-        auth: integration
+        auth: Codemagic
         submit_to_testflight: true
