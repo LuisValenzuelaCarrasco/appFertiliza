@@ -1,15 +1,27 @@
 workflows:
-  ios-simulator:
-    name: iOS Simulator Build
+  ios-app-store:
+    name: iOS App Store
     instance_type: mac_mini_m2
     environment:
       flutter: stable
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.fertiliza.app
     scripts:
-      - name: Build iOS Simulator
+      - name: Set up code signing
         script: |
-          flutter build ios --simulator --debug
-          cd build/ios/iphonesimulator
-          zip -r Runner.app.zip Runner.app
+          keychain initialize
+          app-store-connect fetch-signing-files com.fertiliza.app \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build iOS
+        script: |
+          flutter build ipa --release
     artifacts:
-      - build/ios/iphonesimulator/Runner.app.zip
-      
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
