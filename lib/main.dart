@@ -3,8 +3,12 @@ import 'package:provider/provider.dart';
 import 'models/tank_provider.dart';
 import 'screens/tanques_screen.dart';
 import 'package:flutter/services.dart';
+import 'services/notificacion_service.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificacionService.init();
   runApp(const FertilizaApp());
 }
 
@@ -18,6 +22,19 @@ class FertilizaApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Fertiliza — Calculadora',
         debugShowCheckedModeBanner: false,
+
+        // ← Agrega esto:
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('es', 'ES'),
+          Locale('en', 'US'),
+        ],
+        locale: const Locale('es', 'ES'),
+
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF5DADE2), // ← cambiado

@@ -1,5 +1,5 @@
 // models/medicion.dart
-enum TipoEvento { abono, cambioAgua, poda, nota }
+enum TipoEvento { abono, cambioAgua, poda, nota, recordatorio }
 
 // Generador de UUID v4 simple sin dependencias externas
 String _generarUuid() {
@@ -12,7 +12,7 @@ String _generarUuid() {
 }
 
 class Medicion {
-  final String id; // ← NUEVO: identificador único por evento
+  final String id;
   final DateTime fecha;
   final double litros;
   final Map<String, double> niveles;
@@ -23,7 +23,7 @@ class Medicion {
   final String? notasPoda;
 
   Medicion({
-    String? id, // opcional: se genera automáticamente si no se provee
+    String? id,
     required this.fecha,
     required this.litros,
     required this.niveles,
@@ -35,7 +35,7 @@ class Medicion {
   }) : id = id ?? _generarUuid();
 
   Map<String, dynamic> toJson() => {
-        'id': id, // ← serializado
+        'id': id,
         'fecha': fecha.toIso8601String(),
         'litros': litros,
         'niveles': niveles,
@@ -47,7 +47,6 @@ class Medicion {
       };
 
   factory Medicion.fromJson(Map<String, dynamic> json) => Medicion(
-        // Si el registro es antiguo (sin id), se genera uno nuevo al leer
         id: json['id'] as String?,
         fecha: DateTime.parse(json['fecha']),
         litros: (json['litros'] as num).toDouble(),

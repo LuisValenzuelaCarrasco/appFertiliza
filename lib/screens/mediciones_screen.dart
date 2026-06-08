@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/medicion.dart';
+import '../models/recordatorio.dart';
 import '../services/historial_service.dart';
 import '../services/historial_notifier.dart';
+import '../services/recordatorio_service.dart';
 import '../models/tank_model.dart';
+import '../widgets/dialogo_recordatorio.dart';
 
 class MedicionesScreen extends StatefulWidget {
   final TankModel tank;
@@ -22,6 +25,7 @@ class MedicionesScreen extends StatefulWidget {
 class _MedicionesScreenState extends State<MedicionesScreen>
     with WidgetsBindingObserver {
   List<Medicion> _historial = [];
+  List<Recordatorio> _recordatorios = [];
   bool _cargando = true;
   DateTime _mesActual = DateTime.now();
   DateTime? _diaSeleccionado;
@@ -51,9 +55,11 @@ class _MedicionesScreenState extends State<MedicionesScreen>
 
   Future<void> _cargar() async {
     final data = await HistorialService.cargar(widget.tank.id);
+    final recs = await RecordatorioService.cargar();
     if (!mounted) return;
     setState(() {
       _historial = data;
+      _recordatorios = recs;
       _cargando = false;
     });
   }
@@ -344,6 +350,20 @@ class _MedicionesScreenState extends State<MedicionesScreen>
     );
   }
 
+  Future<void> _abrirRecordatorio(DateTime dia) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => DialogoRecordatorio(fechaInicial: dia),
+    );
+    await _cargar();
+  }
+
+  // ── Helpers de calendario ──────────────────────────────────────────────────
+
   bool _tieneAbono(DateTime dia) =>
       _eventosDelDia(dia, TipoEvento.abono).isNotEmpty;
   bool _tieneCambioAgua(DateTime dia) =>
@@ -352,6 +372,10 @@ class _MedicionesScreenState extends State<MedicionesScreen>
       _eventosDelDia(dia, TipoEvento.poda).isNotEmpty;
   bool _tieneNota(DateTime dia) =>
       _eventosDelDia(dia, TipoEvento.nota).isNotEmpty;
+  bool _tieneRecordatorio(DateTime dia) => _recordatorios.any((r) =>
+      r.fecha.year == dia.year &&
+      r.fecha.month == dia.month &&
+      r.fecha.day == dia.day);
 
   List<Medicion> _medicionesDelDia(DateTime dia) => _historial
       .where((m) =>
@@ -362,6 +386,15 @@ class _MedicionesScreenState extends State<MedicionesScreen>
 
   List<Medicion> _eventosDelDia(DateTime dia, TipoEvento tipo) =>
       _medicionesDelDia(dia).where((m) => m.tipoEvento == tipo).toList();
+
+  List<Recordatorio> _recordatoriosDelDia(DateTime dia) => _recordatorios
+      .where((r) =>
+          r.fecha.year == dia.year &&
+          r.fecha.month == dia.month &&
+          r.fecha.day == dia.day)
+      .toList();
+
+  // ── Formato ───────────────────────────────────────────────────────────────
 
   String _nombreMes(int mes) {
     const nombres = [
@@ -387,7 +420,6 @@ class _MedicionesScreenState extends State<MedicionesScreen>
     return '$h:$m';
   }
 
-  // ── AppBar con degradé ──────────────────────────────────────────────────────
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
@@ -448,10 +480,8 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                     ),
                     Text(
                       widget.tank.volumeLabel,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white70,
-                      ),
+                      style:
+                          const TextStyle(fontSize: 11, color: Colors.white70),
                     ),
                   ],
                 ),
@@ -480,6 +510,9 @@ class _MedicionesScreenState extends State<MedicionesScreen>
     final medicionesSeleccionadas = _diaSeleccionado != null
         ? _medicionesDelDia(_diaSeleccionado!)
         : <Medicion>[];
+    final recordatoriosSeleccionados = _diaSeleccionado != null
+        ? _recordatoriosDelDia(_diaSeleccionado!)
+        : <Recordatorio>[];
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -491,6 +524,7 @@ class _MedicionesScreenState extends State<MedicionesScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ── Navegación de mes ──────────────────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -520,6 +554,8 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                     ],
                   ),
                   const SizedBox(height: 8),
+
+                  // ── Cabecera días de semana ────────────────────────────
                   Row(
                     children: ['D', 'L', 'M', 'M', 'J', 'V', 'S']
                         .map((d) => Expanded(
@@ -534,6 +570,8 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                         .toList(),
                   ),
                   const SizedBox(height: 6),
+
+                  // ── Grid del calendario ───────────────────────────────
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(8),
@@ -556,6 +594,7 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                           final agua = _tieneCambioAgua(dia);
                           final poda = _tienePoda(dia);
                           final nota = _tieneNota(dia);
+                          final recordatorio = _tieneRecordatorio(dia);
                           final esHoy = dia.year == DateTime.now().year &&
                               dia.month == DateTime.now().month &&
                               dia.day == DateTime.now().day;
@@ -588,10 +627,13 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                                   Text('${dia.day}',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        fontWeight:
-                                            (abono || agua || poda || nota)
-                                                ? FontWeight.w700
-                                                : FontWeight.normal,
+                                        fontWeight: (abono ||
+                                                agua ||
+                                                poda ||
+                                                nota ||
+                                                recordatorio)
+                                            ? FontWeight.w700
+                                            : FontWeight.normal,
                                         color: seleccionado
                                             ? Colors.white
                                             : cs.onSurface,
@@ -620,6 +662,11 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                                             color: seleccionado
                                                 ? Colors.white70
                                                 : Colors.amber.shade600),
+                                      if (recordatorio)
+                                        _Dot(
+                                            color: seleccionado
+                                                ? Colors.white70
+                                                : Colors.orange.shade500),
                                     ],
                                   ),
                                 ],
@@ -631,6 +678,8 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  // ── Leyenda ───────────────────────────────────────────
                   Wrap(
                     spacing: 16,
                     runSpacing: 6,
@@ -640,9 +689,13 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                           color: Colors.blue.shade400, label: 'Cambio de agua'),
                       _LeyendaItem(color: Colors.green.shade500, label: 'Poda'),
                       _LeyendaItem(color: Colors.amber.shade600, label: 'Nota'),
+                      _LeyendaItem(
+                          color: Colors.orange.shade500, label: 'Recordatorio'),
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // ── Botón agregar evento ──────────────────────────────
                   if (_diaSeleccionado != null)
                     _BotonAgregarEvento(
                       dia: _diaSeleccionado!,
@@ -652,10 +705,15 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                           ? () => widget
                               .onIrACalculadoraConFecha!(_diaSeleccionado!)
                           : null,
+                      onAgregarRecordatorio: () =>
+                          _abrirRecordatorio(_diaSeleccionado!),
                     ),
                   const SizedBox(height: 12),
+
+                  // ── Lista de eventos y recordatorios del día ──────────
                   if (_diaSeleccionado != null) ...[
-                    if (medicionesSeleccionadas.isEmpty)
+                    if (medicionesSeleccionadas.isEmpty &&
+                        recordatoriosSeleccionados.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Text(
@@ -668,11 +726,12 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '${medicionesSeleccionadas.length == 1 ? '1 evento' : '${medicionesSeleccionadas.length} eventos'} — ${_diaSeleccionado!.day}/${_diaSeleccionado!.month}/${_diaSeleccionado!.year}',
+                            '${(medicionesSeleccionadas.length + recordatoriosSeleccionados.length) == 1 ? '1 evento' : '${medicionesSeleccionadas.length + recordatoriosSeleccionados.length} eventos'} — ${_diaSeleccionado!.day}/${_diaSeleccionado!.month}/${_diaSeleccionado!.year}',
                             style: const TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.w700),
                           ),
-                          if (!_modoSeleccion)
+                          if (!_modoSeleccion &&
+                              medicionesSeleccionadas.isNotEmpty)
                             TextButton.icon(
                               onPressed: () {
                                 setState(() {
@@ -695,6 +754,8 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                         ],
                       ),
                       const SizedBox(height: 10),
+
+                      // Eventos normales
                       ...medicionesSeleccionadas.map((m) => _TarjetaEvento(
                             m: m,
                             hora: _formatHora(m.fecha),
@@ -712,6 +773,38 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                             onEditarNutriente: (nutriente) =>
                                 _editarNutriente(m, nutriente),
                           )),
+
+                      // Recordatorios del día
+                      ...recordatoriosSeleccionados
+                          .map((r) => _TarjetaRecordatorio(
+                                recordatorio: r,
+                                onBorrar: () async {
+                                  final confirmar = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Borrar recordatorio'),
+                                      content: const Text(
+                                          '¿Eliminar este recordatorio? No se puede deshacer.'),
+                                      actions: [
+                                        TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, false),
+                                            child: const Text('Cancelar')),
+                                        TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(ctx, true),
+                                            child: const Text('Borrar',
+                                                style: TextStyle(
+                                                    color: Colors.red))),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmar != true) return;
+                                  await RecordatorioService.eliminar(r.id);
+                                  await _cargar();
+                                },
+                              )),
+
                       if (_modoSeleccion)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
@@ -730,7 +823,7 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                           ),
                         ),
                     ],
-                  ] else if (_historial.isEmpty)
+                  ] else if (_historial.isEmpty && _recordatorios.isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 24),
@@ -805,10 +898,7 @@ class _MiniCheckbox extends StatelessWidget {
   final bool seleccionado;
   final VoidCallback onTap;
 
-  const _MiniCheckbox({
-    required this.seleccionado,
-    required this.onTap,
-  });
+  const _MiniCheckbox({required this.seleccionado, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -832,6 +922,79 @@ class _MiniCheckbox extends StatelessWidget {
         child: seleccionado
             ? const Icon(Icons.check, size: 13, color: Colors.white)
             : null,
+      ),
+    );
+  }
+}
+
+class _TarjetaRecordatorio extends StatelessWidget {
+  final Recordatorio recordatorio;
+  final VoidCallback onBorrar;
+
+  const _TarjetaRecordatorio({
+    required this.recordatorio,
+    required this.onBorrar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final h = recordatorio.fecha.hour.toString().padLeft(2, '0');
+    final m = recordatorio.fecha.minute.toString().padLeft(2, '0');
+    final hora = '$h:$m';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.alarm, color: Colors.orange.shade500, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  'Recordatorio',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.orange.shade500,
+                    fontSize: 14,
+                  ),
+                ),
+                const Spacer(),
+                Text(hora,
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: onBorrar,
+                  child: Icon(Icons.delete_outline,
+                      size: 22, color: Colors.red.shade400),
+                ),
+              ],
+            ),
+            const Divider(height: 14),
+            Text(
+              recordatorio.titulo,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            if (recordatorio.cuerpo.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade500.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: Colors.orange.shade500.withValues(alpha: 0.3)),
+                ),
+                child: Text(recordatorio.cuerpo,
+                    style: const TextStyle(fontSize: 13, height: 1.45)),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -888,6 +1051,10 @@ class _TarjetaEvento extends StatelessWidget {
         icono = Icons.notes_rounded;
         color = Colors.amber.shade600;
         titulo = 'Nota';
+      case TipoEvento.recordatorio:
+        icono = Icons.alarm;
+        color = Colors.orange.shade500;
+        titulo = 'Recordatorio';
     }
 
     final algunNutrienteSeleccionado = m.tipoEvento == TipoEvento.abono &&
@@ -976,7 +1143,7 @@ class _TarjetaEvento extends StatelessWidget {
                       const SizedBox(width: 28),
                       const Expanded(child: SizedBox()),
                       SizedBox(
-                        width: 72,
+                        width: 64,
                         child: Text('medido',
                             textAlign: TextAlign.center,
                             style: TextStyle(
@@ -984,7 +1151,7 @@ class _TarjetaEvento extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       SizedBox(
-                        width: 72,
+                        width: 64,
                         child: Text('objetivo',
                             textAlign: TextAlign.center,
                             style: TextStyle(
@@ -992,13 +1159,13 @@ class _TarjetaEvento extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       SizedBox(
-                        width: 56,
+                        width: 52,
                         child: Text('ml agr.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                                 fontSize: 10, color: cs.onSurfaceVariant)),
                       ),
-                      const SizedBox(width: 60),
+                      const SizedBox(width: 50),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -1028,16 +1195,21 @@ class _TarjetaEvento extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Expanded(
-                                child: Text(e.key,
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: estaSeleccionado
-                                            ? Colors.red.shade400
-                                            : null)),
+                                child: Text(
+                                  e.key,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: estaSeleccionado
+                                        ? Colors.red.shade400
+                                        : null,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
                               ),
                               SizedBox(
-                                width: 72,
+                                width: 64,
                                 child: Center(
                                   child: actual != null
                                       ? Container(
@@ -1065,7 +1237,7 @@ class _TarjetaEvento extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               SizedBox(
-                                width: 72,
+                                width: 64,
                                 child: Center(
                                   child: objetivo != null
                                       ? Container(
@@ -1094,7 +1266,7 @@ class _TarjetaEvento extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               SizedBox(
-                                width: 56,
+                                width: 52,
                                 child: Center(
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1360,7 +1532,7 @@ class _DialogoEditarNutrienteState extends State<_DialogoEditarNutriente> {
   }
 }
 
-// ── Diálogo editar evento completo ───────────────────────────────────────────
+// ── Diálogo editar evento completo ────────────────────────────────────────────
 
 class _DialogoEditarEvento extends StatefulWidget {
   final Medicion medicion;
@@ -1410,15 +1582,9 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
     _litrosController.dispose();
     _porcentajeController.dispose();
     _notasController.dispose();
-    for (final c in _mlControllers.values) {
-      c.dispose();
-    }
-    for (final c in _medidoControllers.values) {
-      c.dispose();
-    }
-    for (final c in _objetivoControllers.values) {
-      c.dispose();
-    }
+    for (final c in _mlControllers.values) c.dispose();
+    for (final c in _medidoControllers.values) c.dispose();
+    for (final c in _objetivoControllers.values) c.dispose();
     super.dispose();
   }
 
@@ -1480,6 +1646,10 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
         icono = Icons.notes_rounded;
         color = Colors.amber.shade600;
         titulo = 'Editar nota';
+      case TipoEvento.recordatorio:
+        icono = Icons.alarm;
+        color = Colors.orange.shade500;
+        titulo = 'Editar recordatorio';
     }
 
     return Padding(
@@ -1506,7 +1676,8 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
               ],
             ),
             const SizedBox(height: 16),
-            if (m.tipoEvento != TipoEvento.nota) ...[
+            if (m.tipoEvento != TipoEvento.nota &&
+                m.tipoEvento != TipoEvento.recordatorio) ...[
               TextField(
                 controller: _litrosController,
                 keyboardType: TextInputType.number,
@@ -1820,11 +1991,13 @@ class _BotonAgregarEvento extends StatelessWidget {
   final DateTime dia;
   final VoidCallback onAgregarOtro;
   final VoidCallback? onAgregarAbono;
+  final VoidCallback onAgregarRecordatorio; // ← nuevo
 
   const _BotonAgregarEvento({
     required this.dia,
     required this.onAgregarOtro,
     this.onAgregarAbono,
+    required this.onAgregarRecordatorio, // ← nuevo
   });
 
   bool get _esPasado {
@@ -1840,10 +2013,31 @@ class _BotonAgregarEvento extends StatelessWidget {
     final label = '${dia.day}/${dia.month}/${dia.year}';
 
     if (!_esPasado || onAgregarAbono == null) {
-      return OutlinedButton.icon(
-        onPressed: onAgregarOtro,
-        icon: const Icon(Icons.add),
-        label: Text('Agregar evento el $label'),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OutlinedButton.icon(
+            onPressed: onAgregarOtro,
+            icon: const Icon(Icons.add, size: 18),
+            label: Text('Agregar evento el $label'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _esPasado ? null : onAgregarRecordatorio,
+            icon: const Icon(Icons.alarm, size: 18),
+            label: Text('Agregar recordatorio el $label'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
       );
     }
 
@@ -1867,6 +2061,17 @@ class _BotonAgregarEvento extends StatelessWidget {
           onPressed: onAgregarOtro,
           icon: const Icon(Icons.add, size: 18),
           label: Text('Otro evento el $label'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _esPasado ? null : onAgregarRecordatorio,
+          icon: const Icon(Icons.alarm, size: 18),
+          label: Text('Agregar recordatorio el $label'),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape:
