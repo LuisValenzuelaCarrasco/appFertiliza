@@ -7,6 +7,8 @@ class ResultadoCard extends StatelessWidget {
   final double litros;
   final double nivelActual;
   final double? objetivoOverride;
+  final String? modalidad;
+  final double? dosisOverride;
 
   const ResultadoCard({
     super.key,
@@ -14,6 +16,8 @@ class ResultadoCard extends StatelessWidget {
     required this.litros,
     required this.nivelActual,
     this.objetivoOverride,
+    this.modalidad,
+    this.dosisOverride,
   });
 
   double get _objetivo => (objetivoOverride != null && objetivoOverride! > 0)
@@ -119,10 +123,11 @@ class ResultadoCard extends StatelessWidget {
     final color = _hexToColor(producto.color);
 
     // Si está en zona OK o exceso, no hay ml que agregar
-    final mlNecesarios = (_esZonaOk || _esSobredosis)
-        ? 0.0
-        : producto.calcularMlNecesarios(nivelActual, litros,
-            objetivo: _objetivo);
+    final mlNecesarios = dosisOverride ??
+        ((_esZonaOk || _esSobredosis)
+            ? 0.0
+            : producto.calcularMlNecesarios(nivelActual, litros,
+                objetivo: _objetivo));
 
     final porcentaje =
         _objetivo > 0 ? (nivelActual / _objetivo).clamp(0.0, 2.0) : 0.0;
@@ -432,7 +437,12 @@ class ResultadoCard extends StatelessWidget {
                 ],
 
                 const SizedBox(height: 12),
-                _ConsejoTile(texto: producto.consejo),
+                _ConsejoTile(
+                  texto: (modalidad != null &&
+                          producto.consejoPorModalidad.containsKey(modalidad))
+                      ? producto.consejoPorModalidad[modalidad]!
+                      : producto.consejo,
+                ),
               ],
             ),
           ),

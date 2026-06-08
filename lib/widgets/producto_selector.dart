@@ -10,6 +10,10 @@ class ProductoSelector extends StatelessWidget {
   final TextEditingController? objetivoController;
   final ValueChanged<bool> onToggle;
   final VoidCallback onChanged;
+  final String? modalidadSeleccionada;
+  final ValueChanged<String>? onModalidadChanged;
+  final bool modoTesteo;
+  final ValueChanged<bool>? onModoTesteoChanged;
 
   const ProductoSelector({
     super.key,
@@ -19,6 +23,10 @@ class ProductoSelector extends StatelessWidget {
     this.objetivoController,
     required this.onToggle,
     required this.onChanged,
+    this.modalidadSeleccionada,
+    this.onModalidadChanged,
+    this.modoTesteo = false,
+    this.onModoTesteoChanged,
   });
 
   Color _hexToColor(String hex) {
@@ -26,23 +34,24 @@ class ProductoSelector extends StatelessWidget {
     return Color(int.parse('FF$h', radix: 16));
   }
 
-  // ── Tolerancia según tipo de producto ─────────────────────────
   static const _hierros = {'hierro_micro', 'hierro_quelatado'};
+  static const _conModalidad = {
+    'potasio',
+    'potasio_micro',
+    'hierro_micro',
+    'hierro_quelatado',
+  };
 
   double _tolerancia(String id) {
     if (_hierros.contains(id)) return 0.35;
-    if (id == 'potasio') return 0.0; // potasio usa su propia lógica
-    if (id == 'fosfato') {
-      return 1.0; // fosfato: OK hasta objetivo+1, exceso desde 2.1
-    }
-    return 5.0; // NPK general
+    if (id == 'potasio') return 0.0;
+    if (id == 'fosfato') return 1.0;
+    return 5.0;
   }
 
   bool _esExceso(String id, double nivelActual, double objetivo) {
     if (id == 'potasio') return nivelActual > 20;
-    if (_hierros.contains(id)) {
-      return nivelActual > 0.35; // hierros: exceso fijo desde 0.36
-    }
+    if (_hierros.contains(id)) return nivelActual > 0.35;
     return nivelActual > objetivo + _tolerancia(id);
   }
 
@@ -58,6 +67,13 @@ class ProductoSelector extends StatelessWidget {
         objetivoIngresado > 0 ? objetivoIngresado : producto.objetivoMgL;
 
     final esSobredosis = _esExceso(producto.id, nivelActual, objetivoFinal);
+
+    // Para los 4 productos con modalidad, mostrar campos de testeo
+    // solo si modoTesteo == true. Para el resto, siempre mostrar.
+    final esProductoConModalidad = _conModalidad.contains(producto.id);
+    final mostrarCamposTesteo = seleccionado &&
+        controller != null &&
+        (!esProductoConModalidad || modoTesteo);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -111,7 +127,7 @@ class ProductoSelector extends StatelessWidget {
                               : producto.id == 'fosfato'
                                   ? 'Sugerido: ${objetivoFinal.toStringAsFixed(objetivoFinal < 1 ? 2 : 0)} mg/L  | Relación 1 PO4 → 10 NO3'
                                   : producto.id == 'potasio'
-                                      ? 'Sugerido: ${objetivoFinal.toStringAsFixed(objetivoFinal < 1 ? 2 : 0)} mg/L  | OK entre 10–20 mg/L' // ← CAMBIADO: 10–15 → 10–20
+                                      ? 'Sugerido: ${objetivoFinal.toStringAsFixed(objetivoFinal < 1 ? 2 : 0)} mg/L  | OK entre 10–20 mg/L'
                                       : 'Sugerido: ${objetivoFinal.toStringAsFixed(objetivoFinal < 1 ? 2 : 0)} mg/L',
                           style: TextStyle(
                             fontSize: 11,
@@ -126,8 +142,51 @@ class ProductoSelector extends StatelessWidget {
             ),
           ),
 
-          // ── Campos (si está seleccionado) ──────────────────────────
-          if (seleccionado && controller != null) ...[
+          // ── Selector Con/Sin testeo (solo los 4 productos con modalidad) ──
+          if (seleccionado && esProductoConModalidad) ...[
+            Divider(
+              height: 1,
+              color: esSobredosis
+                  ? Colors.red.shade200
+                  : color.withValues(alpha: 0.3),
+              indent: 16,
+              endIndent: 16,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+              child: Row(
+                children: [
+                  Text(
+                    'Modo',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  const Spacer(),
+                  _ModoChip(
+                    label: 'Sin testeo',
+                    icono: Icons.straighten_outlined,
+                    seleccionado: !modoTesteo,
+                    color: color,
+                    onTap: () => onModoTesteoChanged?.call(false),
+                  ),
+                  const SizedBox(width: 8),
+                  _ModoChip(
+                    label: 'Con testeo',
+                    icono: Icons.science_outlined,
+                    seleccionado: modoTesteo,
+                    color: color,
+                    onTap: () => onModoTesteoChanged?.call(true),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── Campos de testeo ───────────────────────────────────────
+          if (mostrarCamposTesteo) ...[
             Divider(
               height: 1,
               color: esSobredosis
@@ -238,11 +297,148 @@ class ProductoSelector extends StatelessWidget {
               ),
             ),
           ],
+
+          // ── Selector Low Tech / High Tech (sin testeo, solo 4 productos) ──
+          if (seleccionado &&
+              !modoTesteo &&
+              esProductoConModalidad &&
+              producto.modalidades.length > 1 &&
+              onModalidadChanged != null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Divider(height: 1, color: color.withValues(alpha: 0.2)),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Tipo de acuario',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: producto.modalidades.map((m) {
+                      final sel = (modalidadSeleccionada ??
+                              producto.modalidades.first) ==
+                          m;
+                      return GestureDetector(
+                        onTap: () => onModalidadChanged!(m),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: sel
+                                ? color.withValues(alpha: 0.15)
+                                : cs.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: sel ? color : Colors.transparent,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                m == 'Low Tech'
+                                    ? Icons.eco_outlined
+                                    : Icons.bolt_outlined,
+                                size: 14,
+                                color: sel ? color : cs.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                m,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight:
+                                      sel ? FontWeight.w700 : FontWeight.normal,
+                                  color: sel ? color : cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
+
+// ── _ModoChip ─────────────────────────────────────────────────────────────────
+
+class _ModoChip extends StatelessWidget {
+  final String label;
+  final IconData icono;
+  final bool seleccionado;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ModoChip({
+    required this.label,
+    required this.icono,
+    required this.seleccionado,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: seleccionado
+              ? color.withValues(alpha: 0.15)
+              : cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: seleccionado ? color : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icono,
+              size: 12,
+              color: seleccionado ? color : cs.onSurfaceVariant,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: seleccionado ? FontWeight.w700 : FontWeight.normal,
+                color: seleccionado ? color : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── _NivelIndicador ───────────────────────────────────────────────────────────
 
 class _NivelIndicador extends StatelessWidget {
   final double nivelActual;
@@ -257,21 +453,18 @@ class _NivelIndicador extends StatelessWidget {
     required this.productoId,
   });
 
-  // ── Tolerancias ────────────────────────────────────────────────
   static const _hierros = {'hierro_micro', 'hierro_quelatado'};
 
   double get _tolerancia {
     if (_hierros.contains(productoId)) return 0.35;
     if (productoId == 'potasio') return 0.0;
-    if (productoId == 'fosfato') return 1.0; // fosfato: exceso desde 2.1
+    if (productoId == 'fosfato') return 1.0;
     return 5.0;
   }
 
   bool get _esExceso {
     if (productoId == 'potasio') return nivelActual > 20;
-    if (_hierros.contains(productoId)) {
-      return nivelActual > 0.35; // hierros: exceso fijo desde 0.36
-    }
+    if (_hierros.contains(productoId)) return nivelActual > 0.35;
     return nivelActual > objetivo + _tolerancia;
   }
 
@@ -280,10 +473,8 @@ class _NivelIndicador extends StatelessWidget {
       return nivelActual >= 10 && nivelActual <= 20;
     }
     if (_hierros.contains(productoId)) {
-      return nivelActual >= objetivo &&
-          nivelActual <= 0.35; // hierros: OK hasta 0.35 fijo
+      return nivelActual >= objetivo && nivelActual <= 0.35;
     }
-    // Para otros: dentro del rango [objetivo, objetivo + tolerancia] → OK
     return nivelActual >= objetivo && nivelActual <= objetivo + _tolerancia;
   }
 
@@ -302,8 +493,7 @@ class _NivelIndicador extends StatelessWidget {
       textColor = Colors.red.shade700;
       etiqueta = '⚠ Exceso';
       if (productoId == 'potasio') {
-        final excesoPct =
-            ((nivelActual - 20) / 20 * 100).round(); // ← CAMBIADO: base 15 → 20
+        final excesoPct = ((nivelActual - 20) / 20 * 100).round();
         porcentajeTexto = '+$excesoPct%';
       } else {
         final excesoPct =
@@ -325,7 +515,6 @@ class _NivelIndicador extends StatelessWidget {
       etiqueta = 'Déficit';
       porcentajeTexto = '${(nivelActual / 10 * 100).toStringAsFixed(0)}%';
     } else {
-      // Déficit normal
       indicadorColor = color;
       textColor = color;
       etiqueta = 'Déficit';

@@ -36,6 +36,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   Set<String> _adicionalesCalculados = {};
   Map<String, double> _nivelesSnapshot = {};
   Map<String, String> _modalidadesSnapshot = {};
+  Map<String, double> _dosisSnapshot = {};
   double _litrosCalculados = 0;
 
   final Map<String, TextEditingController> _nivelControllers = {
@@ -60,12 +61,32 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   final Set<String> _productosAdicionalesSeleccionados = {};
   final Map<String, String> _modalidadesSeleccionadas = {};
 
+  // ── Modo testeo por producto (false = sin testeo / dosis etiqueta) ──────────
+  final Map<String, bool> _modoTesteo = {
+    'potasio': false,
+    'potasio_micro': false,
+    'hierro_micro': false,
+    'hierro_quelatado': false,
+  };
+
+  static const _productosConModalidad = {
+    'potasio',
+    'potasio_micro',
+    'hierro_micro',
+    'hierro_quelatado',
+  };
+
   @override
   void initState() {
     super.initState();
     _litrosController = TextEditingController(
       text: widget.tank.volume.toStringAsFixed(0),
     );
+    for (final p in productosTesteables) {
+      if (p.modalidades.isNotEmpty) {
+        _modalidadesSeleccionadas[p.id] = p.modalidades.first;
+      }
+    }
   }
 
   /// Cuando cambia fechaOverride desde HomeScreen (al cambiar de tab),
@@ -75,7 +96,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.fechaOverride != oldWidget.fechaOverride &&
         widget.fechaOverride != null) {
-      // Limpiar resultados previos pero mantener configuración
       setState(() {
         _mostrarResultados = false;
         _productosCalculados.clear();
@@ -148,13 +168,28 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     final nivelesActuales = <String, double>{};
     final objetivosGuardados = <String, double>{};
 
+    _dosisSnapshot.clear();
+
     for (final p in productosTesteables
         .where((p) => _productosSeleccionados.contains(p.id))) {
-      final nivelActual =
-          double.tryParse(_nivelControllers[p.id]?.text ?? '0') ?? 0;
+      final textoNivel = _nivelControllers[p.id]?.text ?? '';
+      final nivelActual = double.tryParse(textoNivel) ?? 0;
       final objetivo = _objetivoEfectivo(p);
-      final dosis =
-          p.calcularMlNecesarios(nivelActual, litros, objetivo: objetivo);
+
+      // Para los 4 productos con modalidad: sin testeo si modoTesteo == false.
+      // Para nitrogeno y fosfato: siempre calcula por déficit.
+      final sinTesteo = _productosConModalidad.contains(p.id) &&
+          !(_modoTesteo[p.id] ?? false);
+
+      final double dosis;
+      if (sinTesteo) {
+        final modalidad = _modalidadActual(p);
+        dosis = p.calcularDosisPorModalidad(litros, modalidad);
+        _dosisSnapshot[p.id] = dosis;
+      } else {
+        dosis = p.calcularMlNecesarios(nivelActual, litros, objetivo: objetivo);
+      }
+
       niveles[p.nombre] = dosis;
       nivelesActuales[p.nombre] = nivelActual;
       objetivosGuardados[p.nombre] = objetivo;
@@ -173,7 +208,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       await HistorialService.guardar(
         widget.tank.id,
         Medicion(
-          // ✅ Usa la fecha del día seleccionado si viene del historial
           fecha: _fechaRegistro(),
           litros: litros,
           niveles: niveles,
@@ -217,6 +251,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       _adicionalesCalculados.clear();
       _nivelesSnapshot.clear();
       _modalidadesSnapshot.clear();
+      _dosisSnapshot.clear();
       for (final c in _nivelControllers.values) {
         c.text = '0';
       }
@@ -225,6 +260,10 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       }
       _litrosController.text = widget.tank.volume.toStringAsFixed(0);
       _litrosCalculados = 0;
+      // Resetear modos a sin testeo
+      for (final key in _modoTesteo.keys) {
+        _modoTesteo[key] = false;
+      }
     });
   }
 
@@ -395,7 +434,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                     children: [
                       Icon(Icons.science_outlined),
                       SizedBox(width: 8),
-                      Text('Nutrientes (con testeo)',
+                      Text('Nutrientes',
                           style: TextStyle(fontWeight: FontWeight.bold)),
                     ],
                   ),
@@ -430,6 +469,15 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                         }
                       }),
                       onChanged: () => setState(() {}),
+                      modalidadSeleccionada: _modalidadesSeleccionadas[p.id],
+                      onModalidadChanged: _productosConModalidad.contains(p.id)
+                          ? (m) => setState(
+                              () => _modalidadesSeleccionadas[p.id] = m)
+                          : null,
+                      modoTesteo: _modoTesteo[p.id] ?? false,
+                      onModoTesteoChanged: _productosConModalidad.contains(p.id)
+                          ? (v) => setState(() => _modoTesteo[p.id] = v)
+                          : null,
                     ),
                   ),
                 ],
@@ -611,6 +659,8 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                         litros: _litrosCalculados,
                         nivelActual: nivelActual,
                         objetivoOverride: objetivo,
+                        modalidad: _modalidadesSnapshot[p.id],
+                        dosisOverride: _dosisSnapshot[p.id],
                       );
                     }).toList(),
                   )

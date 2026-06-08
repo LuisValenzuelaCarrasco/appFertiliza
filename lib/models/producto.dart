@@ -95,8 +95,22 @@ const List<Producto> productosFerti = [
     unidadAporte: 'mg/L de K',
     color: '#27AE60',
     consejo: 'No presente en agua potable: siempre debe suplementarse. '
-        'Si está en 0mg/L, añadir 30ml/100L para llegar a 15mg/L. '
-        'No exceder: inhibe absorción de otros nutrientes.',
+        'Si está en 0mg/L, añadir 30ml/100L para llegar a 15mg/L.',
+    modalidades: ['Low Tech', 'High Tech'],
+    mlPorModalidad: {
+      'Low Tech': 5.0,
+      'High Tech': 10.0,
+    },
+    consejoPorModalidad: {
+      'Low Tech': 'Aplicar 5 ml cada 100 L, 2 a 3 veces por semana.\n'
+          '• Acuarios de bajo requerimiento.\n'
+          '• 2 ml cada 100 L aporta 1 mg/L de K.\n'
+          '• Si está en 0 mg/L añadir 30 ml/100 L para llegar a 15 mg/L.',
+      'High Tech': 'Aplicar 10 ml cada 100 L, 2 a 3 veces por semana.\n'
+          '• Acuarios de alto requerimiento.\n'
+          '• 2 ml cada 100 L aporta 1 mg/L de K.\n'
+          '• No exceder: niveles altos inhiben absorción de otros nutrientes.',
+    },
   ),
   Producto(
     id: 'potasio_micro',
@@ -108,9 +122,22 @@ const List<Producto> productosFerti = [
     objetivoMgL: 15.0,
     unidadAporte: 'mg/L de K',
     color: '#16A085',
-    consejo: 'Combinación perfecta para acuarios con plantas de rizoma. '
-        'Hierro: 30ml/100L aporta 0.1mg/L de Fe. '
-        'Ideal Low Tech con plantas de bajo consumo.',
+    consejo: 'Combinación perfecta para acuarios con plantas de rizoma.',
+    modalidades: ['Low Tech', 'High Tech'],
+    mlPorModalidad: {
+      'Low Tech': 5.0,
+      'High Tech': 10.0,
+    },
+    consejoPorModalidad: {
+      'Low Tech': 'Aplicar 5 ml cada 100 L, 2 a 3 veces por semana.\n'
+          '• Acuarios de bajo requerimiento: anubias, helechos, musgos.\n'
+          '• 2 ml cada 100 L aporta 1 mg/L de K.\n'
+          '• Hierro: 30 ml/100 L aporta 0.1 mg/L de Fe.',
+      'High Tech': 'Aplicar 10 ml cada 100 L, 2 a 3 veces por semana.\n'
+          '• Acuarios de alto requerimiento con plantas exigentes.\n'
+          '• 2 ml cada 100 L aporta 1 mg/L de K.\n'
+          '• No exceder: niveles altos de K inhiben otros nutrientes.',
+    },
   ),
 
   // ── MICRONUTRIENTES ──────────────────────────────────────────
@@ -124,9 +151,22 @@ const List<Producto> productosFerti = [
     objetivoMgL: 0.2,
     unidadAporte: 'mg/L de Fe',
     color: '#8E44AD',
-    consejo: 'Mantener entre 0.1 y 0.3mg/L de Fe. '
-        'Niveles muy altos favorecen algas. '
-        'Testear Fe regularmente. No para acuarios con invertebrados.',
+    consejo: 'Mantener entre 0.1 y 0.3 mg/L de Fe. Testear regularmente.',
+    modalidades: ['Low Tech', 'High Tech'],
+    mlPorModalidad: {
+      'Low Tech': 2.0,
+      'High Tech': 4.0,
+    },
+    consejoPorModalidad: {
+      'Low Tech': 'Aplicar 1 a 2 ml cada 100 L, 2 a 3 veces por semana.\n'
+          '• Acuarios de bajo requerimiento.\n'
+          '• 2 ml cada 100 L aporta 0.05 mg/L de Fe.\n'
+          '• Mantener entre 0.1 y 0.3 mg/L de Fe.',
+      'High Tech': 'Aplicar 2 a 8 ml cada 100 L, 2 a 3 veces por semana.\n'
+          '• Acuarios de alto requerimiento según testeo.\n'
+          '• 4 ml cada 100 L aporta 0.1 mg/L de Fe.\n'
+          '• Niveles muy altos favorecen algas — testear regularmente.',
+    },
   ),
   Producto(
     id: 'hierro_quelatado',
@@ -139,8 +179,22 @@ const List<Producto> productosFerti = [
     unidadAporte: 'mg/L de Fe',
     color: '#6D4C41',
     consejo:
-        'Quelatos EDDHA de alta estabilidad — funciona en rango amplio de pH. '
-        'Ideal para corregir clorosis. No contiene nitratos ni fosfatos.',
+        'Quelatos EDDHA — funciona en rango amplio de pH. Ideal para clorosis.',
+    modalidades: ['Low Tech', 'High Tech'],
+    mlPorModalidad: {
+      'Low Tech': 2.0,
+      'High Tech': 4.0,
+    },
+    consejoPorModalidad: {
+      'Low Tech': 'Aplicar 1 a 2 ml cada 100 L, 2 a 3 veces por semana.\n'
+          '• Acuarios de bajo requerimiento.\n'
+          '• 2 ml cada 100 L aporta 0.05 mg/L de Fe.\n'
+          '• Quelatos EDDHA: estable en amplio rango de pH.',
+      'High Tech': 'Aplicar 2 a 8 ml cada 100 L, 2 a 3 veces por semana.\n'
+          '• Acuarios de alto requerimiento según testeo.\n'
+          '• 4 ml cada 100 L aporta 0.1 mg/L de Fe.\n'
+          '• Ideal para corregir clorosis severa. Testear Fe regularmente.',
+    },
   ),
   Producto(
     id: 'micronutrientes',
