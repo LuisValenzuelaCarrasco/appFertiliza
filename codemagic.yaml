@@ -18,9 +18,11 @@ workflows:
             --create
           keychain add-certificates
           xcode-project use-profiles
-      - name: Build iOS
+      - name: Flutter build
         script: |
-          flutter build ipa --release
+          flutter pub get
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
