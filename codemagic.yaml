@@ -18,7 +18,8 @@ workflows:
       - name: Flutter build
         script: |
           flutter pub get
-          flutter build ipa --release
+          flutter build ipa --release \
+            --export-options-plist=$CM_BUILD_DIR/ios/ExportOptions.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
