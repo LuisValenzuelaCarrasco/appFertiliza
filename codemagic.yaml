@@ -13,7 +13,7 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
-          keychain add-certificates --certificate /Users/builder/Library/MobileDevice/Provisioning\ Profiles/FertilizaDistribution
+          keychain add-certificates
           xcode-project use-profiles
       - name: Flutter build
         script: |
