@@ -29,3 +29,27 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
+
+  ios-adhoc:
+    name: iOS Ad Hoc
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Codemagic
+    environment:
+      flutter: stable
+      ios_signing:
+        distribution_type: ad_hoc
+        bundle_identifier: com.fertiliza.app
+    scripts:
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Flutter build
+        script: |
+          flutter pub get
+          flutter build ipa --release \
+            --export-options-plist=$CM_BUILD_DIR/ios/ExportOptions.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
