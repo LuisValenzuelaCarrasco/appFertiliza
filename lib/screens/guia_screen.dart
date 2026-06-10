@@ -803,7 +803,7 @@ final List<Map<String, String>> _deficiencias = [
   {
     'nombre': 'Deficiencia de Molibdeno (Mo)',
     'sintomas':
-        'Amarillamiento general de hojas, especialmente las más jóvenes.',
+        'Amarillamiento general de hojas, especialmente las más jóvenes..',
     'color': '#BDC3C7',
   },
 ];
