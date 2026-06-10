@@ -17,6 +17,8 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   final picker = ImagePicker();
   ImageSource? source;
 
+  if (!context.mounted) return null;
+
   await showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(
@@ -30,10 +32,7 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(
-                Icons.camera_alt,
-                color: Color(0xFF1A5276),
-              ),
+              leading: const Icon(Icons.camera_alt, color: Color(0xFF1A5276)),
               title: const Text('Tomar foto'),
               onTap: () {
                 source = ImageSource.camera;
@@ -41,10 +40,8 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
               },
             ),
             ListTile(
-              leading: const Icon(
-                Icons.photo_library,
-                color: Color(0xFF1A5276),
-              ),
+              leading:
+                  const Icon(Icons.photo_library, color: Color(0xFF1A5276)),
               title: const Text('Elegir de galería'),
               onTap: () {
                 source = ImageSource.gallery;
@@ -58,8 +55,12 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   );
 
   if (source == null) return null;
+  if (!context.mounted) return null;
 
-  final file = await picker.pickImage(source: source!);
+  final file = await picker.pickImage(
+    source: source!,
+    imageQuality: 85,
+  );
 
   return file?.path;
 }
