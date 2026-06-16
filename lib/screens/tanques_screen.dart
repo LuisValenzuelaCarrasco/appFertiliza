@@ -90,11 +90,25 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   if (source == null) return null;
   if (!context.mounted) return null;
 
-  // CAMBIO 1: imageQuality 100, sin maxWidth ni maxHeight
-  final file = await picker.pickImage(
-    source: source!,
-    imageQuality: 100,
-  );
+  // ✅ FIX IPAD/IPHONE: espera que el bottom sheet se cierre
+  // antes de abrir la cámara. En Android no aplica.
+  if (Platform.isIOS) {
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  if (!context.mounted) return null;
+
+  XFile? file;
+  try {
+    file = await picker.pickImage(
+      source: source!,
+      imageQuality: 100,
+    );
+  } catch (e) {
+    debugPrint('Error al acceder a la cámara: $e');
+    return null;
+  }
+
   if (file == null) return null;
   if (!context.mounted) return null;
 
