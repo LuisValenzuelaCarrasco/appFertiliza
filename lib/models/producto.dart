@@ -130,13 +130,14 @@ const List<Producto> productosFerti = [
     },
     consejoPorModalidad: {
       'Low Tech': 'Aplicar 5 ml cada 100 L, 2 a 3 veces por semana.\n'
-          '• Acuarios de bajo requerimiento: anubias, helechos, musgos.\n'
+          '• Acuarios de bajo requerimiento: anubias, helechos, musgos , e.t.c.\n'
           '• 2 ml cada 100 L aporta 1 mg/L de K.\n'
-          '• Hierro: 30 ml/100 L aporta 0.1 mg/L de Fe.',
+          'y 30 ml/100 L aporta 0.1 mg/L de Fe.',
       'High Tech': 'Aplicar 10 ml cada 100 L, 2 a 3 veces por semana.\n'
           '• Acuarios de alto requerimiento con plantas exigentes.\n'
           '• 2 ml cada 100 L aporta 1 mg/L de K.\n'
-          '• No exceder: niveles altos de K inhiben otros nutrientes.',
+          '• No exceder: niveles altos de K inhiben otros nutrientes.\n'
+          'y 30 ml/100 L aporta 0.1 mg/L de Fe.',
     },
   ),
 

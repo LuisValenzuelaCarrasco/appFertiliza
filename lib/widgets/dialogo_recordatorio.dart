@@ -85,7 +85,7 @@ class _DialogoRecordatorioState extends State<DialogoRecordatorio> {
 
     setState(() => _guardando = true);
 
-    final id = fechaConHora.millisecondsSinceEpoch ~/ 1000;
+    final id = DateTime.now().microsecondsSinceEpoch;
     final cuerpo = _notasController.text.trim();
 
     // Guarda en el calendario siempre, independiente de la notificación

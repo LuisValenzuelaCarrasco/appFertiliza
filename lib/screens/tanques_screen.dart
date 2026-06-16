@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -11,7 +12,41 @@ import 'home_screen.dart';
 import 'package:rutina_fertiliza/widgets/fertiliza_app_bar.dart';
 
 // ─────────────────────────────────────────────────────────────
-// Selector de imagen
+// Visor de imagen a pantalla completa
+// ─────────────────────────────────────────────────────────────
+class _FullScreenImage extends StatelessWidget {
+  final String imagePath;
+
+  const _FullScreenImage({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: InteractiveViewer(
+        panEnabled: true,
+        scaleEnabled: true,
+        minScale: 1.0,
+        maxScale: 5.0,
+        boundaryMargin: const EdgeInsets.all(double.infinity),
+        child: Center(
+          child: Image.file(
+            File(imagePath),
+            fit: BoxFit.contain,
+            width: double.infinity,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Selector + Editor de imagen
 // ─────────────────────────────────────────────────────────────
 Future<String?> _pickImageFromSource(BuildContext context) async {
   final picker = ImagePicker();
@@ -22,9 +57,7 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   await showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(
-        top: Radius.circular(16),
-      ),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (_) {
       return SafeArea(
@@ -57,12 +90,44 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   if (source == null) return null;
   if (!context.mounted) return null;
 
+  // CAMBIO 1: imageQuality 100, sin maxWidth ni maxHeight
   final file = await picker.pickImage(
     source: source!,
-    imageQuality: 85,
+    imageQuality: 100,
+  );
+  if (file == null) return null;
+  if (!context.mounted) return null;
+
+  final cropped = await ImageCropper().cropImage(
+    sourcePath: file.path,
+    compressFormat: ImageCompressFormat.jpg,
+    compressQuality: 100,
+    uiSettings: [
+      AndroidUiSettings(
+        toolbarTitle: 'Ajustar imagen',
+        toolbarColor: const Color(0xFF1B5E20),
+        toolbarWidgetColor: Colors.white,
+        activeControlsWidgetColor: const Color(0xFF4CAF50),
+        statusBarColor: const Color(0xFF1B5E20),
+        backgroundColor: Colors.black,
+        initAspectRatio: CropAspectRatioPreset.ratio16x9,
+        lockAspectRatio: false,
+        hideBottomControls: true,
+      ),
+      IOSUiSettings(
+        title: 'Ajustar imagen',
+        aspectRatioLockEnabled: false,
+        resetAspectRatioEnabled: false,
+        aspectRatioPickerButtonHidden: true,
+        rotateButtonsHidden: true,
+        rotateClockwiseButtonHidden: true,
+        cancelButtonTitle: 'Cancelar',
+        doneButtonTitle: 'Listo',
+      ),
+    ],
   );
 
-  return file?.path;
+  return cropped?.path;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -86,10 +151,7 @@ class TanquesScreen extends StatelessWidget {
               child: Text(
                 'No tienes acuarios.\n¡Agrega uno con el botón +!',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             )
           : ListView.builder(
@@ -114,9 +176,7 @@ class TanquesScreen extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => const _AddTankSheet(),
     );
@@ -136,37 +196,13 @@ class _TankCard extends StatefulWidget {
 }
 
 class _TankCardState extends State<_TankCard> {
-  BoxFit _imageFit = BoxFit.cover;
-
-  void _cycleImageFit() {
-    setState(() {
-      switch (_imageFit) {
-        case BoxFit.cover:
-          _imageFit = BoxFit.contain;
-          break;
-        case BoxFit.contain:
-          _imageFit = BoxFit.fill;
-          break;
-        case BoxFit.fill:
-          _imageFit = BoxFit.cover;
-          break;
-        default:
-          _imageFit = BoxFit.cover;
-      }
-    });
-  }
-
-  String get _fitLabel {
-    switch (_imageFit) {
-      case BoxFit.cover:
-        return 'Recortar';
-      case BoxFit.contain:
-        return 'Ajustar';
-      case BoxFit.fill:
-        return 'Llenar';
-      default:
-        return 'Recortar';
-    }
+  void _openFullScreenImage(String imagePath) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _FullScreenImage(imagePath: imagePath),
+      ),
+    );
   }
 
   void _showEditSheet() {
@@ -208,7 +244,7 @@ class _TankCardState extends State<_TankCard> {
                           File(tank.imagePath!).existsSync()
                       ? Image.file(
                           File(tank.imagePath!),
-                          fit: _imageFit,
+                          fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) {
                             return Container(
                               color: const Color(0xFF5DADE2)
@@ -225,27 +261,29 @@ class _TankCardState extends State<_TankCard> {
                               size: 56, color: Color(0xFF1A5276)),
                         ),
                 ),
-                if (tank.imagePath != null)
+
+                // Botón "Ver imagen"
+                if (tank.imagePath != null &&
+                    File(tank.imagePath!).existsSync())
                   Positioned(
                     bottom: 8,
-                    right: 8,
+                    left: 8,
                     child: GestureDetector(
-                      onTap: _cycleImageFit,
+                      onTap: () => _openFullScreenImage(tank.imagePath!),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                            horizontal: 12, vertical: 5),
                         decoration: BoxDecoration(
                           color: Colors.black54,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.crop,
-                                size: 14, color: Colors.white),
-                            const SizedBox(width: 4),
-                            Text(_fitLabel,
-                                style: const TextStyle(
+                            Icon(Icons.zoom_in, size: 14, color: Colors.white),
+                            SizedBox(width: 6),
+                            Text('Ver imagen',
+                                style: TextStyle(
                                     fontSize: 12, color: Colors.white)),
                           ],
                         ),
@@ -254,6 +292,8 @@ class _TankCardState extends State<_TankCard> {
                   ),
               ],
             ),
+
+            // Info y acciones
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
               child: Row(
@@ -567,9 +607,9 @@ class _ImagePickerCard extends StatelessWidget {
               : null,
         ),
         child: imagePath == null
-            ? Column(
+            ? const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   Icon(Icons.add_a_photo, size: 36, color: Colors.grey),
                   SizedBox(height: 8),
                   Text('Agregar foto', style: TextStyle(color: Colors.grey)),

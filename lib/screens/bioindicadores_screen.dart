@@ -1,47 +1,79 @@
-// screens/superheroes_screen.dart
+// screens/bioindicadores_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
+import 'package:photo_view/photo_view_gallery.dart'; // ← NUEVO import
 import '../widgets/fertiliza_app_bar.dart';
 
-class SuperheroItem {
+class BioindicadorItem {
   final String nombre;
   final String imagen;
-  const SuperheroItem(this.nombre, this.imagen);
+  const BioindicadorItem(this.nombre, this.imagen);
 }
 
-class SuperheroesScreen extends StatelessWidget {
-  const SuperheroesScreen({super.key});
+class BioindicadoresScreen extends StatelessWidget {
+  const BioindicadoresScreen({super.key});
 
-  static const List<SuperheroItem> _superheroes = [
-    SuperheroItem('Comic 1', 'lib/assets/superheroes/comic1.jpeg'),
-    SuperheroItem('Comic 2', 'lib/assets/superheroes/comic2.jpeg'),
-    SuperheroItem('Comic 3', 'lib/assets/superheroes/comic3.jpeg'),
-    SuperheroItem('Comic 4', 'lib/assets/superheroes/comic4.jpeg'),
-    SuperheroItem('Comic 5', 'lib/assets/superheroes/comic5.jpeg'),
-    SuperheroItem('Comic 6', 'lib/assets/superheroes/comic6.jpeg'),
-    SuperheroItem('Comic 7', 'lib/assets/superheroes/comic7.jpeg'),
-    SuperheroItem('Comic 8', 'lib/assets/superheroes/comic8.jpeg'),
-    SuperheroItem('Comic 9', 'lib/assets/superheroes/comic9.jpeg'),
-    SuperheroItem('Comic 10', 'lib/assets/superheroes/comic10.jpeg'),
-    SuperheroItem('Comic 11', 'lib/assets/superheroes/comic11.jpeg'),
-    SuperheroItem('Comic 12', 'lib/assets/superheroes/comic12.jpeg'),
-    SuperheroItem('Comic 13', 'lib/assets/superheroes/comic13.jpeg'),
-    SuperheroItem('Comic 14', 'lib/assets/superheroes/comic14.jpeg'),
-    SuperheroItem('Comic 15', 'lib/assets/superheroes/comic15.jpeg'),
-    SuperheroItem('Comic 16', 'lib/assets/superheroes/comic16.jpeg'),
+  static const List<BioindicadorItem> _items = [
+    BioindicadorItem(
+      'flayer fertiliza deficit',
+      'lib/assets/bioindicadoresplantas/flayer fertiliza.jpeg',
+    ),
+    BioindicadorItem(
+      'Indicadores Visuales',
+      'lib/assets/bioindicadoresplantas/indicadoresVisuales.jpeg',
+    ),
+    BioindicadorItem(
+      'Macro Nutrientes',
+      'lib/assets/bioindicadoresplantas/macroNutrientes.jpeg',
+    ),
+    BioindicadorItem(
+      'Deficit de Nitrogeno (NO3)',
+      'lib/assets/bioindicadoresplantas/deficitNitrogerno.jpeg',
+    ),
+    BioindicadorItem(
+      'Deficit de Fosfato (PO4)',
+      'lib/assets/bioindicadoresplantas/deficitFosfato.jpeg',
+    ),
+    BioindicadorItem(
+      'Deficit de Potacio (K)',
+      'lib/assets/bioindicadoresplantas/deficitPotacio.jpeg',
+    ),
+    BioindicadorItem(
+      'Micronutrientes',
+      'lib/assets/bioindicadoresplantas/micronutrientes.jpeg',
+    ),
+    BioindicadorItem(
+      'Deficit Hierro (FE)',
+      'lib/assets/bioindicadoresplantas/deficitHierro.jpeg',
+    ),
+    BioindicadorItem(
+      'Deficit Micronutrientes',
+      'lib/assets/bioindicadoresplantas/deficitMicronutrientes.jpeg',
+    ),
+    BioindicadorItem(
+      'Deficit Micronutrientes',
+      'lib/assets/bioindicadoresplantas/deficitMicronutrientes2.jpeg',
+    ),
+    BioindicadorItem(
+      'Deficit Calcio y Magnecio',
+      'lib/assets/bioindicadoresplantas/deficitCalcio.jpeg',
+    ),
+    BioindicadorItem(
+      'APP FERTILIZA',
+      'lib/assets/bioindicadoresplantas/Final.jpeg',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: FertilizaAppBar(
-        titulo: 'SUPERHÉROES',
-        subtitulo: 'Catálogo Comics',
+        titulo: 'BIOINDICADORES',
+        subtitulo: 'Guía visual de deficiencias nutricionales',
         actions: [
           Text(
-            '${_superheroes.length} comics',
+            '${_items.length} guías',
             style: const TextStyle(
               color: Colors.white38,
               fontSize: 12,
@@ -53,11 +85,11 @@ class SuperheroesScreen extends StatelessWidget {
       ),
       body: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-        itemCount: _superheroes.length,
+        itemCount: _items.length,
         itemBuilder: (context, index) {
-          final p = _superheroes[index];
-          return _SuperheroCard(
-            superhero: p,
+          final item = _items[index];
+          return _BioindicadorCard(
+            item: item,
             index: index,
             onTap: () => _abrirVisor(context, index),
           );
@@ -72,8 +104,8 @@ class SuperheroesScreen extends StatelessWidget {
       PageRouteBuilder(
         pageBuilder: (_, animation, __) => FadeTransition(
           opacity: animation,
-          child: VisorSuperheroScreen(
-            superheroes: _superheroes,
+          child: VisorBioindicadorScreen(
+            items: _items,
             indexInicial: index,
           ),
         ),
@@ -85,13 +117,13 @@ class SuperheroesScreen extends StatelessWidget {
 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
-class _SuperheroCard extends StatelessWidget {
-  final SuperheroItem superhero;
+class _BioindicadorCard extends StatelessWidget {
+  final BioindicadorItem item;
   final int index;
   final VoidCallback onTap;
 
-  const _SuperheroCard({
-    required this.superhero,
+  const _BioindicadorCard({
+    required this.item,
     required this.index,
     required this.onTap,
   });
@@ -117,13 +149,13 @@ class _SuperheroCard extends StatelessWidget {
                   top: Radius.circular(18),
                 ),
                 child: Hero(
-                  tag: 'superhero_${superhero.imagen}',
+                  tag: 'bio_${item.imagen}',
                   child: Image.asset(
-                    superhero.imagen,
+                    item.imagen,
                     width: double.infinity,
                     fit: BoxFit.fitWidth,
                     errorBuilder: (_, __, ___) => _PlaceholderImagen(
-                      nombre: superhero.nombre,
+                      nombre: item.nombre,
                     ),
                   ),
                 ),
@@ -152,7 +184,7 @@ class _SuperheroCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        superhero.nombre,
+                        item.nombre,
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -224,28 +256,30 @@ class _PlaceholderImagen extends StatelessWidget {
 }
 
 // ── Visor principal ───────────────────────────────────────────────────────────
-// ELIMINADO: _ZoomAwarePagePhysics  (PhotoViewGallery maneja zoom/swipe solo)
-// ELIMINADO: _PaginaVisor           (reemplazado por PhotoViewGalleryPageOptions)
-// ELIMINADO: bool _paginaBloqueada  (estado ya no necesario)
-// ELIMINADO: _onZoomChanged         (callback ya no necesario)
+// ELIMINADO: _ZoomAwarePagePhysics   (ya no necesario)
+// ELIMINADO: _MultiTouchBlocker      (ya no necesario)
+// ELIMINADO: _PaginaVisor            (ya no necesario)
 
-class VisorSuperheroScreen extends StatefulWidget {
-  final List<SuperheroItem> superheroes;
+class VisorBioindicadorScreen extends StatefulWidget {
+  final List<BioindicadorItem> items;
   final int indexInicial;
 
-  const VisorSuperheroScreen({
+  const VisorBioindicadorScreen({
     super.key,
-    required this.superheroes,
+    required this.items,
     required this.indexInicial,
   });
 
   @override
-  State<VisorSuperheroScreen> createState() => _VisorSuperheroScreenState();
+  State<VisorBioindicadorScreen> createState() =>
+      _VisorBioindicadorScreenState();
 }
 
-class _VisorSuperheroScreenState extends State<VisorSuperheroScreen> {
+class _VisorBioindicadorScreenState extends State<VisorBioindicadorScreen> {
   late final PageController _pageController;
   late int _indexActual;
+
+  // ELIMINADO: bool _paginaBloqueada  (PhotoViewGallery lo maneja internamente)
 
   @override
   void initState() {
@@ -271,19 +305,19 @@ class _VisorSuperheroScreenState extends State<VisorSuperheroScreen> {
           // ── Galería con zoom/swipe manejado automáticamente ──────────────
           PhotoViewGallery.builder(
             pageController: _pageController,
-            itemCount: widget.superheroes.length,
+            itemCount: widget.items.length,
             onPageChanged: (i) => setState(() => _indexActual = i),
             scrollPhysics: const ClampingScrollPhysics(),
             backgroundDecoration: const BoxDecoration(color: Colors.black),
             builder: (context, index) {
-              final item = widget.superheroes[index];
+              final item = widget.items[index];
               return PhotoViewGalleryPageOptions(
                 imageProvider: AssetImage(item.imagen),
                 minScale: PhotoViewComputedScale.contained,
-                maxScale: PhotoViewComputedScale.covered * 5.0,
+                maxScale: PhotoViewComputedScale.covered * 4.0,
                 initialScale: PhotoViewComputedScale.contained,
                 heroAttributes: PhotoViewHeroAttributes(
-                  tag: 'superhero_${item.imagen}',
+                  tag: 'bio_${item.imagen}',
                 ),
                 errorBuilder: (_, __, ___) => Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -346,7 +380,7 @@ class _VisorSuperheroScreenState extends State<VisorSuperheroScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            widget.superheroes[_indexActual].nombre,
+                            widget.items[_indexActual].nombre,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -356,7 +390,7 @@ class _VisorSuperheroScreenState extends State<VisorSuperheroScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            '${_indexActual + 1} / ${widget.superheroes.length}',
+                            '${_indexActual + 1} / ${widget.items.length}',
                             style: const TextStyle(
                               color: Colors.white60,
                               fontSize: 11,
@@ -365,7 +399,7 @@ class _VisorSuperheroScreenState extends State<VisorSuperheroScreen> {
                         ],
                       ),
                     ),
-                    // ELIMINADO: badge "Zoom activo"
+                    // ELIMINADO: badge "Zoom activo" (estado ya no existe)
                   ],
                 ),
               ),
@@ -379,7 +413,7 @@ class _VisorSuperheroScreenState extends State<VisorSuperheroScreen> {
             right: 0,
             child: SafeArea(
               child: _IndicadoresPagina(
-                total: widget.superheroes.length,
+                total: widget.items.length,
                 actual: _indexActual,
               ),
             ),

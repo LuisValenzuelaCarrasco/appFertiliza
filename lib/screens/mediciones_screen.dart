@@ -778,6 +778,10 @@ class _MedicionesScreenState extends State<MedicionesScreen>
                       ...recordatoriosSeleccionados
                           .map((r) => _TarjetaRecordatorio(
                                 recordatorio: r,
+                                onEditar: (editado) async {
+                                  await RecordatorioService.actualizar(editado);
+                                  await _cargar();
+                                },
                                 onBorrar: () async {
                                   final confirmar = await showDialog<bool>(
                                     context: context,
@@ -927,13 +931,17 @@ class _MiniCheckbox extends StatelessWidget {
   }
 }
 
+// ── Tarjeta Recordatorio ──────────────────────────────────────────────────────
+
 class _TarjetaRecordatorio extends StatelessWidget {
   final Recordatorio recordatorio;
   final VoidCallback onBorrar;
+  final Future<void> Function(Recordatorio) onEditar;
 
   const _TarjetaRecordatorio({
     required this.recordatorio,
     required this.onBorrar,
+    required this.onEditar,
   });
 
   @override
@@ -965,6 +973,22 @@ class _TarjetaRecordatorio extends StatelessWidget {
                 const Spacer(),
                 Text(hora,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: () => showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    shape: const RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(20))),
+                    builder: (_) => _DialogoEditarRecordatorio(
+                      recordatorio: recordatorio,
+                      onGuardar: onEditar,
+                    ),
+                  ),
+                  child: Icon(Icons.edit_outlined,
+                      size: 22, color: cs.onSurfaceVariant),
+                ),
                 const SizedBox(width: 10),
                 GestureDetector(
                   onTap: onBorrar,
@@ -999,6 +1023,152 @@ class _TarjetaRecordatorio extends StatelessWidget {
     );
   }
 }
+
+// ── Diálogo editar recordatorio ───────────────────────────────────────────────
+
+class _DialogoEditarRecordatorio extends StatefulWidget {
+  final Recordatorio recordatorio;
+  final Future<void> Function(Recordatorio) onGuardar;
+
+  const _DialogoEditarRecordatorio({
+    required this.recordatorio,
+    required this.onGuardar,
+  });
+
+  @override
+  State<_DialogoEditarRecordatorio> createState() =>
+      _DialogoEditarRecordatorioState();
+}
+
+class _DialogoEditarRecordatorioState
+    extends State<_DialogoEditarRecordatorio> {
+  late TextEditingController _tituloCtrl;
+  late TextEditingController _cuerpoCtrl;
+  late TimeOfDay _hora;
+  bool _guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tituloCtrl = TextEditingController(text: widget.recordatorio.titulo);
+    _cuerpoCtrl = TextEditingController(text: widget.recordatorio.cuerpo);
+    _hora = TimeOfDay(
+      hour: widget.recordatorio.fecha.hour,
+      minute: widget.recordatorio.fecha.minute,
+    );
+  }
+
+  @override
+  void dispose() {
+    _tituloCtrl.dispose();
+    _cuerpoCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _seleccionarHora() async {
+    final picked = await showTimePicker(context: context, initialTime: _hora);
+    if (picked != null) setState(() => _hora = picked);
+  }
+
+  Future<void> _guardar() async {
+    if (_tituloCtrl.text.trim().isEmpty) return;
+    setState(() => _guardando = true);
+
+    final fecha = DateTime(
+      widget.recordatorio.fecha.year,
+      widget.recordatorio.fecha.month,
+      widget.recordatorio.fecha.day,
+      _hora.hour,
+      _hora.minute,
+    );
+
+    final editado = Recordatorio(
+      id: widget.recordatorio.id,
+      titulo: _tituloCtrl.text.trim(),
+      cuerpo: _cuerpoCtrl.text.trim(),
+      fecha: fecha,
+    );
+
+    await widget.onGuardar(editado);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom +
+            16,
+        left: 20,
+        right: 20,
+        top: 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.alarm, color: Colors.orange.shade500, size: 18),
+                const SizedBox(width: 8),
+                const Text('Editar recordatorio',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _tituloCtrl,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: 'Título',
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _cuerpoCtrl,
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: 'Descripción (opcional)',
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.access_time, color: Colors.orange.shade500),
+              title: Text(
+                  'Hora: ${_hora.hour.toString().padLeft(2, '0')}:${_hora.minute.toString().padLeft(2, '0')}'),
+              onTap: _seleccionarHora,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _guardando ? null : _guardar,
+                child: _guardando
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Guardar cambios'),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Tarjeta Evento ────────────────────────────────────────────────────────────
 
 class _TarjetaEvento extends StatelessWidget {
   final Medicion m;
@@ -1582,9 +1752,15 @@ class _DialogoEditarEventoState extends State<_DialogoEditarEvento> {
     _litrosController.dispose();
     _porcentajeController.dispose();
     _notasController.dispose();
-    for (final c in _mlControllers.values) c.dispose();
-    for (final c in _medidoControllers.values) c.dispose();
-    for (final c in _objetivoControllers.values) c.dispose();
+    for (final c in _mlControllers.values) {
+      c.dispose();
+    }
+    for (final c in _medidoControllers.values) {
+      c.dispose();
+    }
+    for (final c in _objetivoControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -1991,13 +2167,13 @@ class _BotonAgregarEvento extends StatelessWidget {
   final DateTime dia;
   final VoidCallback onAgregarOtro;
   final VoidCallback? onAgregarAbono;
-  final VoidCallback onAgregarRecordatorio; // ← nuevo
+  final VoidCallback onAgregarRecordatorio;
 
   const _BotonAgregarEvento({
     required this.dia,
     required this.onAgregarOtro,
     this.onAgregarAbono,
-    required this.onAgregarRecordatorio, // ← nuevo
+    required this.onAgregarRecordatorio,
   });
 
   bool get _esPasado {

@@ -9,6 +9,7 @@ class ResultadoCard extends StatelessWidget {
   final double? objetivoOverride;
   final String? modalidad;
   final double? dosisOverride;
+  final bool sinTesteo;
 
   const ResultadoCard({
     super.key,
@@ -18,22 +19,20 @@ class ResultadoCard extends StatelessWidget {
     this.objetivoOverride,
     this.modalidad,
     this.dosisOverride,
+    this.sinTesteo = false,
   });
 
   double get _objetivo => (objetivoOverride != null && objetivoOverride! > 0)
       ? objetivoOverride!
       : producto.objetivoMgL;
 
-  // ── Tolerancias ────────────────────────────────────────────────
   static const _hierros = {'hierro_micro', 'hierro_quelatado'};
 
   double get _tolerancia {
     if (_hierros.contains(producto.id)) return 0.35;
     if (producto.id == 'potasio') return 0.0;
-    if (producto.id == 'fosfato') {
-      return 1.0; // OK hasta objetivo+1, exceso desde 2.1
-    }
-    return 5.0; // NPK general
+    if (producto.id == 'fosfato') return 1.0;
+    return 5.0;
   }
 
   Color _hexToColor(String hex) {
@@ -41,34 +40,26 @@ class ResultadoCard extends StatelessWidget {
     return Color(int.parse('FF$h', radix: 16));
   }
 
-  // ── Exceso real (superó objetivo + tolerancia) ─────────────────
   bool get _esSobredosis {
     if (producto.id == 'potasio') return nivelActual > 20;
-    if (_hierros.contains(producto.id)) {
-      return nivelActual > 0.35; // hierros: exceso fijo desde 0.36
-    }
+    if (_hierros.contains(producto.id)) return nivelActual > 0.35;
     return nivelActual > _objetivo + _tolerancia;
   }
 
-  // ── Zona OK: entre objetivo y objetivo+tolerancia ──────────────
   bool get _esZonaOk {
     if (producto.id == 'potasio') {
       return nivelActual >= 10 && nivelActual <= 20;
     }
     if (_hierros.contains(producto.id)) {
-      return nivelActual >= _objetivo &&
-          nivelActual <= 0.35; // hierros: OK hasta 0.35 fijo
+      return nivelActual >= _objetivo && nivelActual <= 0.35;
     }
     return nivelActual >= _objetivo && nivelActual <= _objetivo + _tolerancia;
   }
 
   bool get _esZonaOkPotasio =>
-      producto.id == 'potasio' &&
-      nivelActual >= 10 &&
-      nivelActual <= 20; // ← CAMBIADO: 20 ya estaba, se mantiene consistente
+      producto.id == 'potasio' && nivelActual >= 10 && nivelActual <= 20;
 
-  bool get _esExcesoPotasio =>
-      producto.id == 'potasio' && nivelActual > 20; // ← CAMBIADO: 15 → 20
+  bool get _esExcesoPotasio => producto.id == 'potasio' && nivelActual > 20;
 
   double get _exceso =>
       _esSobredosis ? nivelActual - (_objetivo + _tolerancia) : 0;
@@ -76,6 +67,7 @@ class ResultadoCard extends StatelessWidget {
   double get _porcentajeExceso => _objetivo > 0 ? _exceso / _objetivo : 0;
 
   String _estadoTexto(double porcentaje) {
+    if (sinTesteo) return 'Sin testeo';
     if (_esExcesoPotasio) return 'Exceso detectado';
     if (_esZonaOkPotasio) return 'Nivel óptimo';
     if (producto.id == 'potasio' && nivelActual < 10) {
@@ -89,6 +81,7 @@ class ResultadoCard extends StatelessWidget {
   }
 
   Color _estadoColor(double porcentaje) {
+    if (sinTesteo) return Colors.blue.shade600;
     if (_esExcesoPotasio) return Colors.red.shade700;
     if (_esZonaOkPotasio) return Colors.green.shade600;
     if (producto.id == 'potasio' && nivelActual < 10) {
@@ -118,11 +111,15 @@ class ResultadoCard extends StatelessWidget {
     }
   }
 
+  double _calcularPpmAportados(double ml) {
+    if (litros <= 0) return 0;
+    return (ml / litros) * 100.0 * (producto.aportePor2ml / 2.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = _hexToColor(producto.color);
 
-    // Si está en zona OK o exceso, no hay ml que agregar
     final mlNecesarios = dosisOverride ??
         ((_esZonaOk || _esSobredosis)
             ? 0.0
@@ -134,31 +131,31 @@ class ResultadoCard extends StatelessWidget {
     final porcentajeNormal = porcentaje.clamp(0.0, 1.0);
     final estadoTexto = _estadoTexto(porcentajeNormal);
     final estadoColor = _estadoColor(porcentajeNormal);
-
-    // Óptimo = zona OK o exactamente en objetivo
     final optimo = _esZonaOk;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: _esSobredosis
+        side: _esSobredosis && !sinTesteo
             ? BorderSide(color: Colors.red.shade400, width: 2)
             : BorderSide.none,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Cabecera ────────────────────────────────────────────────
+          // ── Cabecera ─────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: _esSobredosis ? Colors.red.shade700 : color,
+              color: _esSobredosis && !sinTesteo ? Colors.red.shade700 : color,
             ),
             child: Row(
               children: [
                 Icon(
-                  _esSobredosis ? Icons.warning_rounded : Icons.science,
+                  _esSobredosis && !sinTesteo
+                      ? Icons.warning_rounded
+                      : Icons.science,
                   color: Colors.white,
                   size: 20,
                 ),
@@ -210,239 +207,364 @@ class ResultadoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Barra nivel actual → objetivo ──────────────────────
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Nivel actual: ${nivelActual.toStringAsFixed(2)} mg/L',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: _esSobredosis ? Colors.red.shade700 : null,
-                      ),
-                    ),
-                    Text(
-                      '${_objetivo.toStringAsFixed(_objetivo % 1 == 0 ? 0 : 1)}'
-                      ' ${_tolerancia > 0 ? "(±${_tolerancia % 1 == 0 ? _tolerancia.toStringAsFixed(0) : _tolerancia.toStringAsFixed(2)})" : ""}',
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Stack(
-                    children: [
-                      Container(height: 12, color: Colors.grey.shade200),
-                      FractionallySizedBox(
-                        widthFactor: porcentajeNormal,
-                        child: Container(
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: _esSobredosis
-                                ? Colors.red.shade500
-                                : optimo
-                                    ? Colors.green.shade500
-                                    : color,
-                          ),
-                        ),
-                      ),
-                      if (_esSobredosis)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top: 0,
-                          bottom: 0,
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor:
-                                (_objetivo / nivelActual).clamp(0.0, 1.0),
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: Container(
-                                  width: 2, height: 12, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-
-                // ── Zona OK (no es exceso, pero nivel >= objetivo) ─────
-                if (optimo && !_esSobredosis) ...[
-                  const SizedBox(height: 14),
+                // ══════════════════════════════════════════════════
+                // MODO SIN TESTEO
+                // ══════════════════════════════════════════════════
+                if (sinTesteo) ...[
+                  // Banner azul sin testeo
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
+                      color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(12),
                       border:
-                          Border.all(color: Colors.green.shade200, width: 1.5),
+                          Border.all(color: Colors.blue.shade200, width: 1.5),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.check_circle,
-                            color: Colors.green.shade600, size: 18),
+                        Icon(Icons.info_outline,
+                            color: Colors.blue.shade600, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            producto.id == 'potasio'
-                                ? 'Nivel en zona óptima (10–20 mg/L). No es necesario agregar más.' // ← CAMBIADO: 10–15 → 10–20
-                                : _hierros.contains(producto.id)
-                                    ? 'Nivel en zona óptima (objetivo ±0.35 mg/L). No es necesario agregar más.'
-                                    : 'Nivel en zona óptima (objetivo ±5 mg/L). No es necesario agregar más.',
+                            'Dosis por modalidad (${modalidad ?? ''}) — sin testeo',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.green.shade800,
-                              fontWeight: FontWeight.w500,
+                              color: Colors.blue.shade800,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
+                  const SizedBox(height: 16),
 
-                // ── Alerta sobredosis ──────────────────────────────────
-                if (_esSobredosis) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: Colors.red.shade200, width: 1.5),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  // Dosis a aplicar
+                  _DosisRow(
+                    label: modalidad ?? 'Dosis estándar',
+                    sublabel: 'Calculada según litros del acuario',
+                    valor: dosisOverride ?? 0,
+                    color: color,
+                    icono: Icons.medication_liquid_outlined,
+                    litros: litros,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Texto directo de aporte ───────────────────
+                  if (producto.unidadAporte.contains('mg/L'))
+                    Builder(builder: (context) {
+                      final ml = dosisOverride ?? 0;
+                      final ppm = _calcularPpmAportados(ml);
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.07),
+                          borderRadius: BorderRadius.circular(12),
+                          border:
+                              Border.all(color: color.withValues(alpha: 0.25)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.water_drop,
-                                color: Colors.red.shade700, size: 16),
-                            const SizedBox(width: 6),
-                            Text(
-                              '⚠ Nivel por encima del objetivo',
-                              style: TextStyle(
-                                color: Colors.red.shade800,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
+                            Icon(Icons.insights, size: 16, color: color),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
+                                      height: 1.5),
+                                  children: [
+                                    const TextSpan(text: 'Al agregar '),
+                                    TextSpan(
+                                      text: '${ml.toStringAsFixed(1)} ml',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: color),
+                                    ),
+                                    const TextSpan(
+                                        text: ' de este producto, aportarás '),
+                                    TextSpan(
+                                      text: '${ppm.toStringAsFixed(2)} mg/L',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color: color),
+                                    ),
+                                    TextSpan(
+                                      text:
+                                          ' de ${producto.nombre} a tu acuario de ${litros.toStringAsFixed(0)} L.',
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            _ExcesoChip(
-                              label: 'Exceso',
-                              valor: '+${_exceso.toStringAsFixed(2)} mg/L',
-                              color: Colors.red.shade700,
-                            ),
-                            const SizedBox(width: 8),
-                            _ExcesoChip(
-                              label: 'Sobre objetivo',
-                              valor:
-                                  '+${(_porcentajeExceso * 100).toStringAsFixed(0)}%',
-                              color: Colors.red.shade600,
-                            ),
-                          ],
+                      );
+                    }),
+                  const SizedBox(height: 12),
+
+                  _ConsejoTile(
+                    texto: (modalidad != null &&
+                            producto.consejoPorModalidad.containsKey(modalidad))
+                        ? producto.consejoPorModalidad[modalidad]!
+                        : producto.consejo,
+                  ),
+                ],
+
+                // ══════════════════════════════════════════════════
+                // MODO CON TESTEO (lógica original completa)
+                // ══════════════════════════════════════════════════
+                if (!sinTesteo) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Nivel actual: ${nivelActual.toStringAsFixed(2)} mg/L',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: _esSobredosis ? Colors.red.shade700 : null,
                         ),
-                        const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.shade100),
+                      ),
+                      Text(
+                        '${_objetivo.toStringAsFixed(_objetivo % 1 == 0 ? 0 : 1)}'
+                        ' ${_tolerancia > 0 ? "(±${_tolerancia % 1 == 0 ? _tolerancia.toStringAsFixed(0) : _tolerancia.toStringAsFixed(2)})" : ""}',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Stack(
+                      children: [
+                        Container(height: 12, color: Colors.grey.shade200),
+                        FractionallySizedBox(
+                          widthFactor: porcentajeNormal,
+                          child: Container(
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: _esSobredosis
+                                  ? Colors.red.shade500
+                                  : optimo
+                                      ? Colors.green.shade500
+                                      : color,
+                            ),
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        ),
+                        if (_esSobredosis)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor:
+                                  (_objetivo / nivelActual).clamp(0.0, 1.0),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Container(
+                                    width: 2, height: 12, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (optimo && !_esSobredosis) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: Colors.green.shade200, width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.green.shade600, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              producto.id == 'potasio'
+                                  ? 'Nivel en zona óptima (10–20 mg/L). No es necesario agregar más.'
+                                  : _hierros.contains(producto.id)
+                                      ? 'Nivel en zona óptima (objetivo ±0.35 mg/L). No es necesario agregar más.'
+                                      : 'Nivel en zona óptima (objetivo ±5 mg/L). No es necesario agregar más.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green.shade800,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (_esSobredosis) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border:
+                            Border.all(color: Colors.red.shade200, width: 1.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              const Text('💧', style: TextStyle(fontSize: 14)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _consejoSobredosis(),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.red.shade900,
-                                    height: 1.5,
-                                  ),
+                              Icon(Icons.water_drop,
+                                  color: Colors.red.shade700, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                '⚠ Nivel por encima del objetivo',
+                                style: TextStyle(
+                                  color: Colors.red.shade800,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
                                 ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              _ExcesoChip(
+                                label: 'Exceso',
+                                valor: '+${_exceso.toStringAsFixed(2)} mg/L',
+                                color: Colors.red.shade700,
+                              ),
+                              const SizedBox(width: 8),
+                              _ExcesoChip(
+                                label: 'Sobre objetivo',
+                                valor:
+                                    '+${(_porcentajeExceso * 100).toStringAsFixed(0)}%',
+                                color: Colors.red.shade600,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade100),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('💧',
+                                    style: TextStyle(fontSize: 14)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _consejoSobredosis(),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.red.shade900,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.block,
+                                  color: Colors.red.shade600, size: 14),
+                              const SizedBox(width: 6),
+                              Text(
+                                'No agregar más dosis hasta ajustar el nivel',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.red.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (!_esSobredosis && !optimo) ...[
+                    const SizedBox(height: 16),
+                    _DosisRow(
+                      label: 'Para alcanzar objetivo',
+                      sublabel:
+                          'De ${nivelActual.toStringAsFixed(2)} → ${_objetivo.toStringAsFixed(_objetivo % 1 == 0 ? 0 : 1)} mg/L',
+                      valor: mlNecesarios,
+                      color: Colors.red.shade700,
+                      icono: Icons.arrow_upward,
+                      litros: litros,
+                    ),
+                    const SizedBox(height: 12),
+                    Builder(builder: (context) {
+                      final ppm = _calcularPpmAportados(mlNecesarios);
+                      return Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border:
+                              Border.all(color: color.withValues(alpha: 0.2)),
                         ),
-                        const SizedBox(height: 8),
-                        Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.block,
-                                color: Colors.red.shade600, size: 14),
-                            const SizedBox(width: 6),
+                            Row(
+                              children: [
+                                Icon(Icons.insights, size: 14, color: color),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Introducirá al acuario: +${ppm.toStringAsFixed(2)} mg/L',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: color,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
                             Text(
-                              'No agregar más dosis hasta ajustar el nivel',
+                              'Cada 2ml/100L aporta ${producto.aportePor2ml} ${producto.unidadAporte}',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.red.shade700,
-                                fontWeight: FontWeight.w600,
+                                color: color.withValues(alpha: 0.75),
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                // ── Dosis de corrección (solo si hay déficit real) ─────
-                if (!_esSobredosis && !optimo) ...[
-                  const SizedBox(height: 16),
-                  _DosisRow(
-                    label: 'Para alcanzar objetivo',
-                    sublabel:
-                        'De ${nivelActual.toStringAsFixed(2)} → ${_objetivo.toStringAsFixed(_objetivo % 1 == 0 ? 0 : 1)} mg/L',
-                    valor: mlNecesarios,
-                    color: Colors.red.shade700,
-                    icono: Icons.arrow_upward,
-                    litros: litros,
-                  ),
+                      );
+                    }),
+                  ],
                   const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline, size: 16, color: color),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Cada 2ml/100L aporta ${producto.aportePor2ml} ${producto.unidadAporte}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: color,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  _ConsejoTile(
+                    texto: (modalidad != null &&
+                            producto.consejoPorModalidad.containsKey(modalidad))
+                        ? producto.consejoPorModalidad[modalidad]!
+                        : producto.consejo,
                   ),
                 ],
-
-                const SizedBox(height: 12),
-                _ConsejoTile(
-                  texto: (modalidad != null &&
-                          producto.consejoPorModalidad.containsKey(modalidad))
-                      ? producto.consejoPorModalidad[modalidad]!
-                      : producto.consejo,
-                ),
               ],
             ),
           ),
@@ -452,7 +574,7 @@ class ResultadoCard extends StatelessWidget {
   }
 }
 
-// ── Chip de exceso ─────────────────────────────────────────────────────────────
+// ── Chip de exceso ────────────────────────────────────────────────────────────
 
 class _ExcesoChip extends StatelessWidget {
   final String label;
@@ -485,7 +607,7 @@ class _ExcesoChip extends StatelessWidget {
   }
 }
 
-// ── Fila de dosis ──────────────────────────────────────────────────────────────
+// ── Fila de dosis ─────────────────────────────────────────────────────────────
 
 class _DosisRow extends StatelessWidget {
   final String label;
@@ -559,7 +681,7 @@ class _DosisRow extends StatelessWidget {
   }
 }
 
-// ── Consejo expandible ─────────────────────────────────────────────────────────
+// ── Consejo expandible ────────────────────────────────────────────────────────
 
 class _ConsejoTile extends StatefulWidget {
   final String texto;

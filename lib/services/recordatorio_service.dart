@@ -41,4 +41,17 @@ class RecordatorioService {
     });
     await prefs.setStringList(_clave, lista);
   }
+
+  static Future<void> actualizar(Recordatorio r) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList(_clave) ?? [];
+    final index = lista.indexWhere((e) {
+      final existing = Recordatorio.fromJson(jsonDecode(e));
+      return existing.id == r.id;
+    });
+    if (index != -1) {
+      lista[index] = jsonEncode(r.toJson());
+      await prefs.setStringList(_clave, lista);
+    }
+  }
 }

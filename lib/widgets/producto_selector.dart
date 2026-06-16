@@ -143,6 +143,7 @@ class ProductoSelector extends StatelessWidget {
           ),
 
           // ── Selector Con/Sin testeo (solo los 4 productos con modalidad) ──
+          // ── Selector Con/Sin testeo (solo los 4 productos con modalidad) ──
           if (seleccionado && esProductoConModalidad) ...[
             Divider(
               height: 1,
@@ -154,7 +155,8 @@ class ProductoSelector extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Modo',
@@ -164,27 +166,34 @@ class ProductoSelector extends StatelessWidget {
                       color: cs.onSurfaceVariant,
                     ),
                   ),
-                  const Spacer(),
-                  _ModoChip(
-                    label: 'Sin testeo',
-                    icono: Icons.straighten_outlined,
-                    seleccionado: !modoTesteo,
-                    color: color,
-                    onTap: () => onModoTesteoChanged?.call(false),
-                  ),
-                  const SizedBox(width: 8),
-                  _ModoChip(
-                    label: 'Con testeo',
-                    icono: Icons.science_outlined,
-                    seleccionado: modoTesteo,
-                    color: color,
-                    onTap: () => onModoTesteoChanged?.call(true),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ModoChip(
+                          label: 'Sin testeo',
+                          icono: Icons.straighten_outlined,
+                          seleccionado: !modoTesteo,
+                          color: color,
+                          onTap: () => onModoTesteoChanged?.call(false),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ModoChip(
+                          label: 'Con testeo',
+                          icono: Icons.science_outlined,
+                          seleccionado: modoTesteo,
+                          color: color,
+                          onTap: () => onModoTesteoChanged?.call(true),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ],
-
           // ── Campos de testeo ───────────────────────────────────────
           if (mostrarCamposTesteo) ...[
             Divider(
@@ -403,7 +412,8 @@ class _ModoChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        width: double.infinity, // ocupa todo el ancho disponible
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: seleccionado
               ? color.withValues(alpha: 0.15)
@@ -415,7 +425,8 @@ class _ModoChip extends StatelessWidget {
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.max,
           children: [
             Icon(
               icono,

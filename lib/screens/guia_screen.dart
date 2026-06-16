@@ -1,6 +1,8 @@
 // screens/guia_screen.dart
 import 'package:flutter/material.dart';
 import '../widgets/fertiliza_app_bar.dart';
+import 'bioindicadores_screen.dart';
+import 'ley_minimo_screen.dart'; // ← nuevo
 
 class GuiaScreen extends StatelessWidget {
   const GuiaScreen({super.key});
@@ -15,45 +17,30 @@ class GuiaScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── Tips de litraje ───────────────────────────────────────
           const _SeccionTitulo('¿Cómo estimar el litraje real?'),
           const _TipsLitrajeCard(),
           const SizedBox(height: 8),
 
-          // ── Low Tech vs Hi Tech ───────────────────────────────────
           const _SeccionTitulo('Tipos de acuario plantado'),
           const _TipoAcuarioCard(),
           const SizedBox(height: 8),
 
-          // ── Equilibrio NPK ────────────────────────────────────────
           const _SeccionTitulo('Equilibrio NPK objetivo'),
           _EquilibrioNPKCard(),
           const SizedBox(height: 8),
 
-          // ── Ley del mínimo ────────────────────────────────────────
           const _SeccionTitulo('Ley del Mínimo de Liebig'),
-          _InfoCard(
-            icono: Icons.bar_chart,
-            color: Colors.purple.shade600,
-            titulo: '¿Por qué importa?',
-            contenido:
-                'El crecimiento de las plantas está limitado por el nutriente más escaso, '
-                'sin importar la abundancia de los demás. '
-                'Si falta fosfato, aumentar potasio no sirve de nada: '
-                'el fosfato siempre será el limitante.',
-          ),
+          const _LeyMinimoCard(),
           const SizedBox(height: 8),
 
-          // ── Deficiencias visuales ─────────────────────────────────
-          const _SeccionTitulo('Deficiencias visuales'),
-          ..._deficiencias.map((d) => _DeficienciaCard(
-                nombre: d['nombre']!,
-                sintomas: d['sintomas']!,
-                color: Color(int.parse('FF${d['color']!.replaceAll('#', '')}',
-                    radix: 16)),
-              )),
+          // ── Ferti-Tips Ediciones: botón Bioindicadores ─────────────
+          const _SeccionTitulo(
+            'Ferti-Tips  Ediciones',
+            color: Color.fromARGB(255, 22, 29, 175),
+          ),
+          const _BioindicadoresCard(),
+          const SizedBox(height: 12),
 
-          // ── Algas como indicador ──────────────────────────────────
           const _SeccionTitulo('Algas como bioindicadoras'),
           _InfoCard(
             icono: Icons.grass,
@@ -67,12 +54,10 @@ class GuiaScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // ── Tabla de dosificaciones ───────────────────────────────
           const _SeccionTitulo('Tabla de dosificaciones rápidas'),
           _TablaDosis(),
           const SizedBox(height: 8),
 
-          // ── Incidencia del pH ─────────────────────────────────────
           const _SeccionTitulo('Incidencia del pH en nutrientes'),
           _InfoCard(
             icono: Icons.science,
@@ -87,7 +72,6 @@ class GuiaScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // ── Calcio y Magnesio ─────────────────────────────────────
           const _SeccionTitulo('Calcio y Magnesio'),
           _InfoCard(
             icono: Icons.water_drop,
@@ -102,6 +86,148 @@ class GuiaScreen extends StatelessWidget {
           ),
           const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BIOINDICADORES CARD (botón expandible con deficiencias)
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _BioindicadoresCard extends StatelessWidget {
+  const _BioindicadoresCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFFE8F5E9),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Colors.green.shade300,
+          width: 1.2,
+        ),
+      ),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        splashFactory: InkRipple.splashFactory, // ← aquí
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const BioindicadoresScreen(),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.eco, color: Colors.green.shade700, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Bioindicadores',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: Colors.green.shade800,
+                      ),
+                    ),
+                    const Text(
+                      'Guía visual para identificar deficiencias\nnutricionales en plantas acuáticas',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.green.shade400),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LEY DEL MINIMO
+// ══════════════════════════════════════════════════════════════════════════════
+class _LeyMinimoCard extends StatelessWidget {
+  const _LeyMinimoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFF1A5276);
+
+    return Card(
+      color: const Color(0xFFE8F0F7),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: color.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+      ),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        splashFactory: InkRipple.splashFactory,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const LeyMinimoScreen(),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.bar_chart, color: color, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Ley del Mínimo de Liebig',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: color,
+                      ),
+                    ),
+                    Text(
+                      'Flyers y guía visual sobre factores limitantes\nen el crecimiento de plantas acuáticas',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: color.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: color, size: 20),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -212,8 +338,6 @@ class _TipsLitrajeCard extends StatelessWidget {
   }
 }
 
-// ── Ítem de tip individual ────────────────────────────────────────────────────
-
 class _TipItem extends StatelessWidget {
   final Color color;
   final IconData icono;
@@ -277,8 +401,6 @@ class _TipItem extends StatelessWidget {
   }
 }
 
-// ── Diagrama ilustrativo del litraje real ─────────────────────────────────────
-
 class _DiagramaLitraje extends StatelessWidget {
   const _DiagramaLitraje();
 
@@ -326,10 +448,9 @@ class _LitrajePainter extends CustomPainter {
     const double by = 190.0;
     const double thick = 4.0;
     const double substrH = 28.0;
-    const double substrY = by - substrH; // 162
+    const double substrY = by - substrH;
     const double waterTopY = 30.0;
 
-    // ── 1. Sustrato ───────────────────────────────────────────────
     canvas.drawRect(
         const Rect.fromLTRB(
             lx + thick / 2, substrY, rx - thick / 2, substrY + substrH * 0.5),
@@ -346,7 +467,6 @@ class _LitrajePainter extends CustomPainter {
       }
     }
 
-    // ── 2. Roca ───────────────────────────────────────────────────
     final rock = Path()
       ..moveTo(80, substrY)
       ..lineTo(68, substrY - 22)
@@ -364,7 +484,6 @@ class _LitrajePainter extends CustomPainter {
       ..close();
     canvas.drawPath(rockShadow, Paint()..color = rockDark);
 
-    // ── 3. Plantas ────────────────────────────────────────────────
     final stemPaint = Paint()
       ..color = plantDark
       ..strokeWidth = 2
@@ -389,13 +508,11 @@ class _LitrajePainter extends CustomPainter {
     planta(170, substrY, 42, 3);
     planta(143, substrY, 36, 3);
 
-    // ── 4. Agua ───────────────────────────────────────────────────
     canvas.drawRect(
       Rect.fromLTRB(lx + thick / 2, waterTopY, rx - thick / 2, substrY),
       Paint()..color = waterColor,
     );
 
-    // ── 5. Marco de vidrio (encima para cubrir bordes) ────────────
     canvas.drawRRect(
       RRect.fromLTRBR(lx, ty, rx, by, const Radius.circular(5)),
       Paint()
@@ -404,7 +521,6 @@ class _LitrajePainter extends CustomPainter {
         ..strokeWidth = thick,
     );
 
-    // ── 6. Línea de agua ──────────────────────────────────────────
     canvas.drawLine(
       Offset(lx + thick / 2, waterTopY),
       Offset(rx - thick / 2, waterTopY),
@@ -413,7 +529,6 @@ class _LitrajePainter extends CustomPainter {
         ..strokeWidth = 1.5,
     );
 
-    // ── 7. Flecha de medición (sustrato → línea de agua) ──────────
     const double ax = rx + 22;
     final ap = Paint()
       ..color = arrowColor
@@ -427,7 +542,6 @@ class _LitrajePainter extends CustomPainter {
     canvas.drawLine(Offset(ax - 5, substrY - 8), Offset(ax, substrY - 2), ap);
     canvas.drawLine(Offset(ax + 5, substrY - 8), Offset(ax, substrY - 2), ap);
 
-    // Líneas punteadas de referencia horizontal
     void punteada(double y) {
       final lp = Paint()
         ..color = lineColor
@@ -442,7 +556,6 @@ class _LitrajePainter extends CustomPainter {
     punteada(waterTopY);
     punteada(substrY);
 
-    // ── 8. Etiquetas ──────────────────────────────────────────────
     void t(String text, Offset pos, Color color, double fs,
         {bool bold = false, TextAlign a = TextAlign.center}) {
       final tp = TextPainter(
@@ -466,24 +579,18 @@ class _LitrajePainter extends CustomPainter {
     t('Litraje', Offset(ax + 14, (waterTopY + substrY) / 2 - 7), arrowColor,
         9.5,
         bold: true, a: TextAlign.left);
-
     t('real', Offset(ax + 14, (waterTopY + substrY) / 2 + 5), arrowColor, 9.5,
         bold: true, a: TextAlign.left);
-
     t('Línea de agua', Offset(lx - 4, waterTopY + 1), measureColor, 9,
         a: TextAlign.right);
-
     t('Sustrato', Offset((lx + rx) / 2, substrY + substrH / 2),
         isDark ? Colors.brown.shade100 : Colors.brown.shade900, 9.5,
         bold: true);
-
     t('Roca', Offset(90, substrY - 40),
         isDark ? Colors.blueGrey.shade100 : Colors.blueGrey.shade800, 9);
-
     t('Plantas', Offset(175, waterTopY + 10),
         isDark ? Colors.green.shade200 : Colors.green.shade800, 9,
         a: TextAlign.left);
-
     t('← medir por dentro del vidrio →', Offset((lx + rx) / 2, by + 14),
         labelColor, 9);
   }
@@ -492,7 +599,8 @@ class _LitrajePainter extends CustomPainter {
   bool shouldRepaint(_LitrajePainter old) => old.isDark != isDark;
 }
 
-// TIPOS DE ACUARIO: LOW TECH vs HI TECH
+// ══════════════════════════════════════════════════════════════════════════════
+// TIPOS DE ACUARIO
 // ══════════════════════════════════════════════════════════════════════════════
 
 class _TipoAcuarioCard extends StatelessWidget {
@@ -750,69 +858,11 @@ class _PuntoTipo extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// Resto de datos y widgets (sin cambios en su lógica)
-// ══════════════════════════════════════════════════════════════════════════════
-
-final List<Map<String, String>> _deficiencias = [
-  {
-    'nombre': 'Deficiencia de Nitrógeno (NO3)',
-    'sintomas': 'Las puntas de las hojas se vuelven verde pálido/amarillas. '
-        'No confundir con deficiencia de PO4. '
-        'Reducción general del color verde.',
-    'color': '#C0392B',
-  },
-  {
-    'nombre': 'Deficiencia de Fosfato (PO4)',
-    'sintomas':
-        'Hojas viejas toman coloración amarillenta, pueden tener zonas muertas. '
-            'Las hojas se desprenden. Reducción en ramificación y debilidad de raíces.',
-    'color': '#2980B9',
-  },
-  {
-    'nombre': 'Deficiencia de Potasio (K)',
-    'sintomas':
-        'Pequeñas manchas amarillentas a café que se convierten en orificios. '
-            'El resto de la hoja se ve normal. Necrosis en puntas de hojas.',
-    'color': '#27AE60',
-  },
-  {
-    'nombre': 'Deficiencia de Hierro (Fe)',
-    'sintomas': 'Clorosis (amarillamiento) especialmente en hojas jóvenes. '
-        'Afecta síntesis de clorofila y fotosíntesis.',
-    'color': '#8E44AD',
-  },
-  {
-    'nombre': 'Deficiencia de Manganeso (Mn)',
-    'sintomas': 'Manchas amarillas o blancas entre las venas de las hojas. '
-        'Deformación en hojas más jóvenes.',
-    'color': '#D35400',
-  },
-  {
-    'nombre': 'Deficiencia de Boro (B)',
-    'sintomas': 'Necrosis en puntas y bordes de hojas. '
-        'Deformidades en hojas jóvenes. Afecta sistema radicular.',
-    'color': '#16A085',
-  },
-  {
-    'nombre': 'Deficiencia de Zinc (Zn)',
-    'sintomas':
-        'Clorosis en nervaduras. Hojas nuevas pequeñas o con deformidades.',
-    'color': '#7F8C8D',
-  },
-  {
-    'nombre': 'Deficiencia de Molibdeno (Mo)',
-    'sintomas':
-        'Amarillamiento general de hojas, especialmente las más jóvenes..',
-    'color': '#BDC3C7',
-  },
-];
-
-// ── Widgets internos ──────────────────────────────────────────────────────────
-
 class _SeccionTitulo extends StatelessWidget {
   final String texto;
-  const _SeccionTitulo(this.texto);
+  final Color? color; // ← nuevo parámetro opcional
+
+  const _SeccionTitulo(this.texto, {this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -823,7 +873,10 @@ class _SeccionTitulo extends StatelessWidget {
         style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w800,
-          color: Theme.of(context).colorScheme.primary,
+          color: color ??
+              Theme.of(context)
+                  .colorScheme
+                  .primary, // ← usa el custom o el del tema
           letterSpacing: 0.3,
         ),
       ),
@@ -1033,7 +1086,7 @@ class _DeficienciaCardState extends State<_DeficienciaCard> {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
+      margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => setState(() => _expandido = !_expandido),
@@ -1136,7 +1189,6 @@ class _TablaDosis extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             child: Column(
               children: [
-                // Encabezado
                 Container(
                   color: const Color(0xFF1A5276),
                   child: Row(
@@ -1146,7 +1198,6 @@ class _TablaDosis extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Filas de datos
                 ...filas.asMap().entries.map((e) {
                   final bg = e.key % 2 == 1
                       ? cs.surfaceContainerHighest
@@ -1163,7 +1214,6 @@ class _TablaDosis extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Nota explicativa del potenciador
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: _InfoCard(

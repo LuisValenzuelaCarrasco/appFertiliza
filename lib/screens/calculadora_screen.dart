@@ -12,8 +12,6 @@ import '../models/tank_model.dart';
 class CalculadoraScreen extends StatefulWidget {
   final TankModel tank;
 
-  /// Si se pasa una fecha, el cálculo se registrará en ese día en lugar de hoy.
-  /// Usado cuando el usuario navega desde el historial de un día pasado.
   final DateTime? fechaOverride;
 
   const CalculadoraScreen({
@@ -36,7 +34,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   Set<String> _adicionalesCalculados = {};
   Map<String, double> _nivelesSnapshot = {};
   Map<String, String> _modalidadesSnapshot = {};
-  Map<String, double> _dosisSnapshot = {};
+  final Map<String, double> _dosisSnapshot = {};
   double _litrosCalculados = 0;
 
   final Map<String, TextEditingController> _nivelControllers = {
@@ -61,7 +59,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   final Set<String> _productosAdicionalesSeleccionados = {};
   final Map<String, String> _modalidadesSeleccionadas = {};
 
-  // ── Modo testeo por producto (false = sin testeo / dosis etiqueta) ──────────
   final Map<String, bool> _modoTesteo = {
     'potasio': false,
     'potasio_micro': false,
@@ -89,8 +86,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     }
   }
 
-  /// Cuando cambia fechaOverride desde HomeScreen (al cambiar de tab),
-  /// reiniciamos la calculadora para que quede limpia con la nueva fecha.
   @override
   void didUpdateWidget(CalculadoraScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -129,9 +124,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
         (p.modalidades.isNotEmpty ? p.modalidades.first : '');
   }
 
-  /// Construye la fecha de registro:
-  /// - Si hay fechaOverride (día pasado), usa ese día con la hora actual.
-  /// - Si no, usa DateTime.now().
   DateTime _fechaRegistro() {
     final ahora = DateTime.now();
     if (widget.fechaOverride != null) {
@@ -176,23 +168,24 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       final nivelActual = double.tryParse(textoNivel) ?? 0;
       final objetivo = _objetivoEfectivo(p);
 
-      // Para los 4 productos con modalidad: sin testeo si modoTesteo == false.
-      // Para nitrogeno y fosfato: siempre calcula por déficit.
       final sinTesteo = _productosConModalidad.contains(p.id) &&
           !(_modoTesteo[p.id] ?? false);
 
       final double dosis;
       if (sinTesteo) {
+        // Sin testeo: solo guardamos los ml aplicados, sin medido ni objetivo
         final modalidad = _modalidadActual(p);
         dosis = p.calcularDosisPorModalidad(litros, modalidad);
         _dosisSnapshot[p.id] = dosis;
+        niveles[p.nombre] = dosis;
+        // NO se agregan nivelesActuales ni objetivosGuardados para este nutriente
       } else {
+        // Con testeo: guardamos medido, objetivo y ml
         dosis = p.calcularMlNecesarios(nivelActual, litros, objetivo: objetivo);
+        niveles[p.nombre] = dosis;
+        nivelesActuales[p.nombre] = nivelActual;
+        objetivosGuardados[p.nombre] = objetivo;
       }
-
-      niveles[p.nombre] = dosis;
-      nivelesActuales[p.nombre] = nivelActual;
-      objetivosGuardados[p.nombre] = objetivo;
     }
 
     for (final p in productosAdicionales
@@ -260,7 +253,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       }
       _litrosController.text = widget.tank.volume.toStringAsFixed(0);
       _litrosCalculados = 0;
-      // Resetear modos a sin testeo
       for (final key in _modoTesteo.keys) {
         _modoTesteo[key] = false;
       }
@@ -328,7 +320,6 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── Banner de fecha si viene del historial ────────────────────────
           if (fechaOverride != null)
             Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -661,6 +652,8 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
                         objetivoOverride: objetivo,
                         modalidad: _modalidadesSnapshot[p.id],
                         dosisOverride: _dosisSnapshot[p.id],
+                        sinTesteo: _productosConModalidad.contains(p.id) &&
+                            !(_modoTesteo[p.id] ?? false),
                       );
                     }).toList(),
                   )

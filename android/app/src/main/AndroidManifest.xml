@@ -32,6 +32,13 @@
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
 
+        <!-- Activity UCrop para image_cropper -->
+      <activity
+    android:name="com.yalantis.ucrop.UCropActivity"
+    android:screenOrientation="portrait"
+    android:theme="@style/UCropTheme"/>
+
+        <!-- Activity principal Flutter -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -53,6 +60,7 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
     </application>
 
     <queries>
@@ -61,4 +69,5 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+
 </manifest>
