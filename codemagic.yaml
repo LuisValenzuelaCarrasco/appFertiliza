@@ -2,33 +2,25 @@ workflows:
   ios-app-store:
     name: iOS App Store
     instance_type: mac_mini_m2
+
     integrations:
       app_store_connect: Codemagic
+
     environment:
       flutter: stable
       vars:
         BUNDLE_ID: com.fertiliza.app
+
     scripts:
-      - name: Set up code signing
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files $BUNDLE_ID \
-            --type IOS_APP_STORE \
-            --create
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Flutter packages
-        script: |
-          flutter pub get
-      - name: Generate launcher icons
-        script: |
-          dart run flutter_launcher_icons
+      - name: Install dependencies
+        script: flutter pub get
+
       - name: Build IPA
-        script: |
-          flutter build ipa --release \
-            --export-options-plist=$CM_BUILD_DIR/ios/ExportOptions.plist
+        script: flutter build ipa --release
+
     artifacts:
       - build/ios/ipa/*.ipa
+
     publishing:
       app_store_connect:
         auth: integration
