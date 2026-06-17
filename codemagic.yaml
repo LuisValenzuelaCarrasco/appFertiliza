@@ -31,6 +31,8 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.fertiliza.app
+        certificate_name: FertilizaDistribution
+        provisioning_profile_name: FertilizaAppStore
     scripts:
       - name: Set up code signing
         script: |
@@ -40,10 +42,6 @@ workflows:
       - name: Fix iOS deployment target
         script: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
-      - name: Fix bridging headers error
-        script: |
-          sed -i '' 's/BUILD_LIBRARY_FOR_DISTRIBUTION = YES/BUILD_LIBRARY_FOR_DISTRIBUTION = NO/g' ios/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/APPLICATION_EXTENSION_API_ONLY = YES/APPLICATION_EXTENSION_API_ONLY = NO/g' ios/Runner.xcodeproj/project.pbxproj
       - name: Generate launcher icons
         script: |
           flutter pub get
@@ -70,6 +68,8 @@ workflows:
       ios_signing:
         distribution_type: ad_hoc
         bundle_identifier: com.fertiliza.app
+        certificate_name: FertilizaDistribution
+        provisioning_profile_name: FertilizaAppStore
     scripts:
       - name: Set up code signing
         script: |
@@ -79,10 +79,6 @@ workflows:
       - name: Fix iOS deployment target
         script: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
-      - name: Fix bridging headers error
-        script: |
-          sed -i '' 's/BUILD_LIBRARY_FOR_DISTRIBUTION = YES/BUILD_LIBRARY_FOR_DISTRIBUTION = NO/g' ios/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/APPLICATION_EXTENSION_API_ONLY = YES/APPLICATION_EXTENSION_API_ONLY = NO/g' ios/Runner.xcodeproj/project.pbxproj
       - name: Flutter build
         script: |
           flutter pub get
