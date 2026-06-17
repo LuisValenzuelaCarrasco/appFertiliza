@@ -31,8 +31,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.fertiliza.app
-        certificate_name: FertilizaDistribution
-        provisioning_profile_name: FertilizaAppStore
     scripts:
       - name: Set up code signing
         script: |
@@ -68,8 +66,6 @@ workflows:
       ios_signing:
         distribution_type: ad_hoc
         bundle_identifier: com.fertiliza.app
-        certificate_name: FertilizaDistribution
-        provisioning_profile_name: FertilizaAppStore
     scripts:
       - name: Set up code signing
         script: |
