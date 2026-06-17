@@ -46,6 +46,7 @@ workflows:
           dart run flutter_launcher_icons
       - name: Flutter build
         script: |
+          flutter config --no-enable-swift-package-manager
           flutter build ipa --release \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
@@ -77,6 +78,7 @@ workflows:
       - name: Flutter build
         script: |
           flutter pub get
+          flutter config --no-enable-swift-package-manager
           flutter build ipa --release \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
