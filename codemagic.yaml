@@ -1,27 +1,4 @@
-workflows:
-  android-play-store:
-    name: Android Play Store
-    instance_type: mac_mini_m2
-    environment:
-      flutter: stable
-      android_signing:
-        - keystore_reference
-    scripts:
-      - name: Generate launcher icons
-        script: |
-          flutter pub get
-          dart run flutter_launcher_icons
-      - name: Flutter build
-        script: |
-          flutter build appbundle --release
-    artifacts:
-      - build/app/outputs/bundle/release/app-release.aab
-    publishing:
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal
-
-  ios-app-store:
+ios-app-store:
     name: iOS App Store
     instance_type: mac_mini_m2
     integrations:
@@ -32,11 +9,6 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.fertiliza.app
     scripts:
-      - name: Set up code signing
-        script: |
-          keychain initialize
-          keychain add-certificates
-          xcode-project use-profiles --project ios/Runner.xcodeproj
       - name: Fix iOS deployment target
         script: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
@@ -55,32 +27,3 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-
-  ios-adhoc:
-    name: iOS Ad Hoc
-    instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: Codemagic
-    environment:
-      flutter: stable
-      ios_signing:
-        distribution_type: ad_hoc
-        bundle_identifier: com.fertiliza.app
-    scripts:
-      - name: Set up code signing
-        script: |
-          keychain initialize
-          keychain add-certificates
-          xcode-project use-profiles --project ios/Runner.xcodeproj
-      - name: Fix iOS deployment target
-        script: |
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
-      - name: Flutter build
-        script: |
-          flutter pub get
-          flutter config --no-enable-swift-package-manager
-          flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
-    artifacts:
-      - build/ios/ipa/*.ipa
-
