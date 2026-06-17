@@ -1,4 +1,3 @@
-cat > codemagic.yaml << 'EOF'
 workflows:
   android-play-store:
     name: Android Play Store
@@ -48,6 +47,7 @@ workflows:
       - name: Flutter build
         script: |
           flutter build ipa --release \
+            --no-swift-package-manager \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
@@ -79,7 +79,7 @@ workflows:
         script: |
           flutter pub get
           flutter build ipa --release \
+            --no-swift-package-manager \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
-EOF
