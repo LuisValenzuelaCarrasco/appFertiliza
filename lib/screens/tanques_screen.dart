@@ -10,13 +10,10 @@ import '../models/tank_model.dart';
 import '../models/tank_provider.dart';
 import 'home_screen.dart';
 import 'package:rutina_fertiliza/widgets/fertiliza_app_bar.dart';
+import '../services/notificacion_service.dart';
 
-// ─────────────────────────────────────────────────────────────
-// Visor de imagen a pantalla completa
-// ─────────────────────────────────────────────────────────────
 class _FullScreenImage extends StatelessWidget {
   final String imagePath;
-
   const _FullScreenImage({required this.imagePath});
 
   @override
@@ -45,9 +42,6 @@ class _FullScreenImage extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Selector + Editor de imagen
-// ─────────────────────────────────────────────────────────────
 Future<String?> _pickImageFromSource(BuildContext context) async {
   final picker = ImagePicker();
   ImageSource? source;
@@ -90,11 +84,7 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   if (source == null) return null;
   if (!context.mounted) return null;
 
-  // CAMBIO 1: imageQuality 100, sin maxWidth ni maxHeight
-  final file = await picker.pickImage(
-    source: source!,
-    imageQuality: 100,
-  );
+  final file = await picker.pickImage(source: source!, imageQuality: 100);
   if (file == null) return null;
   if (!context.mounted) return null;
 
@@ -130,9 +120,6 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   return cropped?.path;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Pantalla principal
-// ─────────────────────────────────────────────────────────────
 class TanquesScreen extends StatelessWidget {
   const TanquesScreen({super.key});
 
@@ -146,22 +133,28 @@ class TanquesScreen extends StatelessWidget {
         titulo: 'FERTILIZA ®',
         subtitulo: 'Mis Acuarios',
       ),
-      body: tanks.isEmpty
-          ? const Center(
-              child: Text(
-                'No tienes acuarios.\n¡Agrega uno con el botón +!',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: tanks.length,
-              itemBuilder: (context, index) {
-                final tank = tanks[index];
-                return _TankCard(tank: tank);
-              },
-            ),
+      body: Column(
+        children: [
+          Expanded(
+            child: tanks.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No tienes acuarios.\n¡Agrega uno con el botón +!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: tanks.length,
+                    itemBuilder: (context, index) {
+                      final tank = tanks[index];
+                      return _TankCard(tank: tank);
+                    },
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context),
         icon: const Icon(Icons.add),
@@ -183,12 +176,8 @@ class TanquesScreen extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Card acuario
-// ─────────────────────────────────────────────────────────────
 class _TankCard extends StatefulWidget {
   final TankModel tank;
-
   const _TankCard({required this.tank});
 
   @override
@@ -199,9 +188,7 @@ class _TankCardState extends State<_TankCard> {
   void _openFullScreenImage(String imagePath) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => _FullScreenImage(imagePath: imagePath),
-      ),
+      MaterialPageRoute(builder: (_) => _FullScreenImage(imagePath: imagePath)),
     );
   }
 
@@ -245,14 +232,12 @@ class _TankCardState extends State<_TankCard> {
                       ? Image.file(
                           File(tank.imagePath!),
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) {
-                            return Container(
-                              color: const Color(0xFF5DADE2)
-                                  .withValues(alpha: 0.15),
-                              child: const Icon(Icons.broken_image,
-                                  size: 56, color: Color(0xFF1A5276)),
-                            );
-                          },
+                          errorBuilder: (_, __, ___) => Container(
+                            color:
+                                const Color(0xFF5DADE2).withValues(alpha: 0.15),
+                            child: const Icon(Icons.broken_image,
+                                size: 56, color: Color(0xFF1A5276)),
+                          ),
                         )
                       : Container(
                           color:
@@ -261,8 +246,6 @@ class _TankCardState extends State<_TankCard> {
                               size: 56, color: Color(0xFF1A5276)),
                         ),
                 ),
-
-                // Botón "Ver imagen"
                 if (tank.imagePath != null &&
                     File(tank.imagePath!).existsSync())
                   Positioned(
@@ -292,8 +275,6 @@ class _TankCardState extends State<_TankCard> {
                   ),
               ],
             ),
-
-            // Info y acciones
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
               child: Row(
@@ -335,9 +316,6 @@ class _TankCardState extends State<_TankCard> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Agregar acuario
-// ─────────────────────────────────────────────────────────────
 class _AddTankSheet extends StatefulWidget {
   const _AddTankSheet();
 
@@ -454,12 +432,8 @@ class _AddTankSheetState extends State<_AddTankSheet> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Editar acuario
-// ─────────────────────────────────────────────────────────────
 class _EditTankSheet extends StatefulWidget {
   final TankModel tank;
-
   const _EditTankSheet({required this.tank});
 
   @override
@@ -580,9 +554,6 @@ class _EditTankSheetState extends State<_EditTankSheet> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Widget reutilizable imagen
-// ─────────────────────────────────────────────────────────────
 class _ImagePickerCard extends StatelessWidget {
   final String? imagePath;
   final VoidCallback onTap;

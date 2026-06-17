@@ -1,34 +1,51 @@
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:flutter/material.dart';
 import '../models/recordatorio.dart';
 import 'recordatorio_service.dart';
 
 class NotificacionService {
-  static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _inicializado = false;
 
   static Future<void> init() async {
     if (_inicializado) return;
-    tz_data.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('America/Santiago'));
 
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings();
-    await _plugin.initialize(
-      const InitializationSettings(android: android, iOS: ios),
+    await AwesomeNotifications().initialize(
+      null, // null = ícono por defecto de la app
+      [
+        NotificationChannel(
+          channelKey: 'recordatorios_fertiliza',
+          channelName: 'Recordatorios Fertiliza',
+          channelDescription: 'Recordatorios de mantenimiento del acuario',
+          importance: NotificationImportance.Max,
+          defaultPrivacy: NotificationPrivacy.Public,
+          enableVibration: true,
+          playSound: true,
+        ),
+      ],
     );
 
-    if (await Permission.notification.isDenied) {
-      await Permission.notification.request();
-    }
-    if (await Permission.scheduleExactAlarm.isDenied) {
-      await Permission.scheduleExactAlarm.request();
+    _inicializado = true;
+  }
+
+  // Llama esto desde la pantalla antes de abrir el diálogo
+  static Future<bool> pedirPermisos(BuildContext context) async {
+    await init();
+
+    final permitido =
+        await AwesomeNotifications().requestPermissionToSendNotifications();
+
+    if (!permitido && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Activa las notificaciones para Fertiliza en Ajustes.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
 
-    _inicializado = true;
-    await reprogramarTodos();
+    return permitido;
   }
 
   static Future<void> programar({
@@ -39,85 +56,64 @@ class NotificacionService {
   }) async {
     await init();
 
-    // ← USA la hora real del usuario, no las 08:00
-    final fechaNotificacion = tz.TZDateTime(
-      tz.local,
-      fecha.year,
-      fecha.month,
-      fecha.day,
-      fecha.hour, // ← corregido
-      fecha.minute, // ← corregido
-      0,
-    );
+    final ahora = DateTime.now();
+    if (!fecha.isAfter(ahora.add(const Duration(minutes: 1)))) {
+      debugPrint('⚠️ Notificación #$id ignorada: fecha ya pasó');
+      return;
+    }
 
-    await _plugin.zonedSchedule(
-      id,
-      titulo,
-      cuerpo,
-      fechaNotificacion,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'recordatorios',
-          'Recordatorios Fertiliza',
-          channelDescription: 'Recordatorios de mantenimiento del acuario',
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: DarwinNotificationDetails(),
+    debugPrint('✅ Programando notificación #$id para $fecha');
+
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: id,
+        channelKey: 'recordatorios_fertiliza',
+        title: titulo,
+        body: cuerpo,
+        notificationLayout: NotificationLayout.Default,
+        wakeUpScreen: true,
+        category: NotificationCategory.Reminder,
       ),
-      androidScheduleMode:
-          AndroidScheduleMode.exactAllowWhileIdle, // ← más confiable
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+      schedule: NotificationCalendar.fromDate(
+        date: fecha,
+        allowWhileIdle: true,
+        preciseAlarm: true,
+      ),
     );
   }
 
   static Future<void> cancelar(int id) async {
-    await _plugin.cancel(id);
+    await AwesomeNotifications().cancel(id);
     await RecordatorioService.eliminar(id);
   }
 
   static Future<void> reprogramarTodos() async {
-    await RecordatorioService.limpiarVencidos();
-    final recordatorios = await RecordatorioService.cargar();
-    final ahora = DateTime.now();
+    try {
+      await RecordatorioService.limpiarVencidos();
+      final recordatorios = await RecordatorioService.cargar();
+      final ahora = DateTime.now();
 
-    for (final Recordatorio r in recordatorios) {
-      if (r.fecha.isAfter(ahora)) {
-        // ← USA la hora real guardada, no las 08:00
-        final fechaNotificacion = tz.TZDateTime(
-          tz.local,
-          r.fecha.year,
-          r.fecha.month,
-          r.fecha.day,
-          r.fecha.hour, // ← corregido
-          r.fecha.minute, // ← corregido
-          0,
-        );
-
-        await _plugin.zonedSchedule(
-          r.id,
-          r.titulo,
-          r.cuerpo,
-          fechaNotificacion,
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'recordatorios',
-              'Recordatorios Fertiliza',
-              channelDescription: 'Recordatorios de mantenimiento del acuario',
-              importance: Importance.high,
-              priority: Priority.high,
-              icon: '@mipmap/ic_launcher',
+      for (final Recordatorio r in recordatorios) {
+        if (r.fecha.isAfter(ahora)) {
+          await AwesomeNotifications().createNotification(
+            content: NotificationContent(
+              id: r.id,
+              channelKey: 'recordatorios_fertiliza',
+              title: r.titulo,
+              body: r.cuerpo,
+              wakeUpScreen: true,
+              category: NotificationCategory.Reminder,
             ),
-            iOS: DarwinNotificationDetails(),
-          ),
-          androidScheduleMode:
-              AndroidScheduleMode.exactAllowWhileIdle, // ← corregido
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
+            schedule: NotificationCalendar.fromDate(
+              date: r.fecha,
+              allowWhileIdle: true,
+              preciseAlarm: true,
+            ),
+          );
+        }
       }
+    } catch (e) {
+      debugPrint('⚠️ Error reprogramando: $e');
     }
   }
 }

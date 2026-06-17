@@ -5,9 +5,16 @@ import 'screens/tanques_screen.dart';
 import 'package:flutter/services.dart';
 import 'services/notificacion_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Fuerza permiso de batería ANTES de init
+  if (await Permission.ignoreBatteryOptimizations.isDenied) {
+    await Permission.ignoreBatteryOptimizations.request();
+  }
+
   await NotificacionService.init();
   runApp(const FertilizaApp());
 }

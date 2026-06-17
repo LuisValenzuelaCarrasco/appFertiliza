@@ -17,7 +17,7 @@ class DialogoRecordatorio extends StatefulWidget {
 
 class _DialogoRecordatorioState extends State<DialogoRecordatorio> {
   late DateTime _fechaSeleccionada;
-  TimeOfDay _horaSeleccionada = const TimeOfDay(hour: 8, minute: 0);
+  late TimeOfDay _horaSeleccionada;
   final _notasController = TextEditingController();
   bool _guardando = false;
 
@@ -26,6 +26,10 @@ class _DialogoRecordatorioState extends State<DialogoRecordatorio> {
     super.initState();
     _fechaSeleccionada = widget.fechaInicial;
     _guardando = false;
+
+    // Hora por defecto: 1 hora desde ahora, minutos en 0
+    final ahora = DateTime.now().add(const Duration(hours: 1));
+    _horaSeleccionada = TimeOfDay(hour: ahora.hour, minute: 0);
   }
 
   @override
@@ -39,7 +43,7 @@ class _DialogoRecordatorioState extends State<DialogoRecordatorio> {
     final fecha = await showDatePicker(
       context: context,
       initialDate: _fechaSeleccionada.isBefore(hoy) ? hoy : _fechaSeleccionada,
-      firstDate: hoy, // hoy es el mínimo, no fechas pasadas
+      firstDate: hoy,
       lastDate: hoy.add(const Duration(days: 365)),
       locale: const Locale('es', 'ES'),
     );
@@ -64,19 +68,21 @@ class _DialogoRecordatorioState extends State<DialogoRecordatorio> {
       return;
     }
 
-    var fechaConHora = DateTime(
+    final fechaConHora = DateTime(
       _fechaSeleccionada.year,
       _fechaSeleccionada.month,
       _fechaSeleccionada.day,
       _horaSeleccionada.hour,
       _horaSeleccionada.minute,
-    ).toLocal();
-    // Si la fecha ya pasó o está a menos de 1 minuto, avisa
-    if (fechaConHora
-        .isBefore(DateTime.now().toLocal().add(const Duration(minutes: 1)))) {
+    );
+
+    if (fechaConHora.isBefore(DateTime.now().add(const Duration(minutes: 1)))) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Elige una hora al menos 1 minuto en el futuro.'),
+        SnackBar(
+          content: Text(
+            'La hora ${_formatHora(_horaSeleccionada)} ya pasó. '
+            'Elige una hora futura.',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -85,10 +91,9 @@ class _DialogoRecordatorioState extends State<DialogoRecordatorio> {
 
     setState(() => _guardando = true);
 
-    final id = DateTime.now().microsecondsSinceEpoch;
+    final id = DateTime.now().millisecondsSinceEpoch % 100000;
     final cuerpo = _notasController.text.trim();
 
-    // Guarda en el calendario siempre, independiente de la notificación
     await RecordatorioService.guardar(
       Recordatorio(
         id: id,
@@ -98,7 +103,6 @@ class _DialogoRecordatorioState extends State<DialogoRecordatorio> {
       ),
     );
 
-    // Intenta programar la notificación del sistema
     try {
       await NotificacionService.programar(
         id: id,
@@ -108,7 +112,8 @@ class _DialogoRecordatorioState extends State<DialogoRecordatorio> {
       );
     } catch (e) {
       debugPrint('Notificación no programada: $e');
-      // No es fatal — el recordatorio ya quedó guardado en el calendario
+    } finally {
+      if (mounted) setState(() => _guardando = false);
     }
 
     if (mounted) {

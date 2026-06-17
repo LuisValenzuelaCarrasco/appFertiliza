@@ -22,6 +22,7 @@ class Recordatorio {
         id: json['id'],
         titulo: json['titulo'],
         cuerpo: json['cuerpo'],
-        fecha: DateTime.parse(json['fecha']),
+        // ✅ .toLocal() convierte correctamente desde ISO8601
+        fecha: DateTime.parse(json['fecha']).toLocal(),
       );
 }

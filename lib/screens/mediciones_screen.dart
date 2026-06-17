@@ -2204,7 +2204,7 @@ class _BotonAgregarEvento extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: _esPasado ? null : onAgregarRecordatorio,
+            onPressed: onAgregarRecordatorio,
             icon: const Icon(Icons.alarm, size: 18),
             label: Text('Agregar recordatorio el $label'),
             style: OutlinedButton.styleFrom(
