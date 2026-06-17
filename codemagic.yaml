@@ -1,4 +1,5 @@
-ios-app-store:
+workflows:
+  ios-app-store:
     name: iOS App Store
     instance_type: mac_mini_m2
     integrations:
@@ -9,21 +10,46 @@ ios-app-store:
         distribution_type: app_store
         bundle_identifier: com.fertiliza.app
     scripts:
-      - name: Fix iOS deployment target
+      - name: Set up code signing
         script: |
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Generate launcher icons
         script: |
           flutter pub get
           dart run flutter_launcher_icons
       - name: Flutter build
         script: |
-          flutter config --no-enable-swift-package-manager
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
+            --export-options-plist=$CM_BUILD_DIR/ios/ExportOptions.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
+
+  ios-adhoc:
+    name: iOS Ad Hoc
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Codemagic
+    environment:
+      flutter: stable
+      ios_signing:
+        distribution_type: ad_hoc
+        bundle_identifier: com.fertiliza.app
+    scripts:
+      - name: Set up code signing
+        script: |
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Flutter build
+        script: |
+          flutter pub get
+          flutter build ipa --release \
+            --export-options-plist=$CM_BUILD_DIR/ios/ExportOptions.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
