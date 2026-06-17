@@ -11,11 +11,17 @@ workflows:
     scripts:
       - name: Set up code signing
         script: |
+          set -e
+          echo "=== Iniciando keychain ==="
+          keychain initialize
+          echo "=== Descargando certificados ==="
           app-store-connect fetch-signing-files $BUNDLE_ID \
             --type IOS_APP_STORE \
-            --create
-          keychain initialize
+            --create \
+            --verbose
+          echo "=== Agregando certificados ==="
           keychain add-certificates
+          echo "=== Aplicando perfiles ==="
           xcode-project use-profiles
       - name: Generate launcher icons
         script: |
