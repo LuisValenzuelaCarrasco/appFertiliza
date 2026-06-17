@@ -36,7 +36,7 @@ workflows:
         script: |
           keychain initialize
           keychain add-certificates
-          xcode-project use-profiles
+          xcode-project use-profiles --project ios/Runner.xcodeproj
       - name: Fix iOS deployment target
         script: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
@@ -71,7 +71,7 @@ workflows:
         script: |
           keychain initialize
           keychain add-certificates
-          xcode-project use-profiles
+          xcode-project use-profiles --project ios/Runner.xcodeproj
       - name: Fix iOS deployment target
         script: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
@@ -83,3 +83,4 @@ workflows:
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
+
