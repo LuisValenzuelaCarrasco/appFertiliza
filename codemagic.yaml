@@ -42,8 +42,7 @@ workflows:
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
       - name: Fix bridging headers
         script: |
-          sed -i '' 's/SWIFT_OBJC_BRIDGING_HEADER/SWIFT_OBJC_BRIDGING_HEADER_DISABLED/g' ios/Runner.xcodeproj/project.pbxproj || true
-          find . -name "*.pbxproj" -exec sed -i '' '/SWIFT_OBJC_BRIDGING_HEADER/d' {} \; || true
+          find . -name "*.pbxproj" -exec sed -i '' '/SWIFT_OBJC_BRIDGING_HEADER[^_]/d' {} \; || true
       - name: Generate launcher icons
         script: |
           flutter pub get
@@ -80,8 +79,7 @@ workflows:
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
       - name: Fix bridging headers
         script: |
-          sed -i '' 's/SWIFT_OBJC_BRIDGING_HEADER/SWIFT_OBJC_BRIDGING_HEADER_DISABLED/g' ios/Runner.xcodeproj/project.pbxproj || true
-          find . -name "*.pbxproj" -exec sed -i '' '/SWIFT_OBJC_BRIDGING_HEADER/d' {} \; || true
+          find . -name "*.pbxproj" -exec sed -i '' '/SWIFT_OBJC_BRIDGING_HEADER[^_]/d' {} \; || true
       - name: Flutter build
         script: |
           flutter pub get
