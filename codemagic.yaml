@@ -44,10 +44,6 @@ workflows:
         script: |
           flutter pub get
           dart run flutter_launcher_icons
-      - name: Flutter build
-        script: |
-          flutter build ipa --release \
-            --export-options-plist=$CM_BUILD_DIR/ios/ExportOptions.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
