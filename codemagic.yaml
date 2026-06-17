@@ -40,9 +40,6 @@ workflows:
       - name: Fix iOS deployment target
         script: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
-      - name: Fix bridging headers
-        script: |
-          find . -name "*.pbxproj" -exec sed -i '' '/SWIFT_OBJC_BRIDGING_HEADER[^_]/d' {} \; || true
       - name: Generate launcher icons
         script: |
           flutter pub get
@@ -77,9 +74,6 @@ workflows:
       - name: Fix iOS deployment target
         script: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
-      - name: Fix bridging headers
-        script: |
-          find . -name "*.pbxproj" -exec sed -i '' '/SWIFT_OBJC_BRIDGING_HEADER[^_]/d' {} \; || true
       - name: Flutter build
         script: |
           flutter pub get
