@@ -630,3 +630,4 @@ class _ImagePickerCard extends StatelessWidget {
     );
   }
 }
+
