@@ -39,7 +39,9 @@ workflows:
           flutter build ipa --release \
             --export-options-plist=/Users/builder/export_options.plist
           echo "=== Buscando IPA ==="
-          find /Users/builder/clone -name "*.ipa" 2>/dev/null
+          find /Users/builder -name "*.ipa" 2>/dev/null
+          echo "=== Contenido de build/ios ==="
+          ls -la /Users/builder/clone/build/ios/ 2>/dev/null || echo "No existe esa ruta"
     artifacts:
       - build/ios/ipa/*.ipa
       - /Users/builder/clone/build/ios/ipa/*.ipa
