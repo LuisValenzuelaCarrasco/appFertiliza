@@ -17,7 +17,7 @@ workflows:
       - name: Set up code signing settings on Xcode project
         script: |
           gem update xcodeproj
-          xcode-project use-profiles
+          xcode-project use-profiles --custom-export-options '{"method":"app-store","teamID":"RJ5C82BZS5","signingStyle":"manual","provisioningProfiles":{"com.fertiliza.app":"Distribution Profile"}}'
       - name: Install dependencies
         script: flutter pub get
       - name: Generate launcher icons
