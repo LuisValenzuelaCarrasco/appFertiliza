@@ -14,6 +14,10 @@ workflows:
       vars:
         BUNDLE_ID: com.fertiliza.app
     scripts:
+      - name: Set up code signing settings on Xcode project
+        script: |
+          gem update xcodeproj
+          xcode-project use-profiles
       - name: Install dependencies
         script: flutter pub get
       - name: Generate launcher icons
@@ -21,13 +25,7 @@ workflows:
       - name: Build IPA
         script: |
           flutter build ipa --release \
-            --dart-define=FLUTTER_BUILD_NAME=2.1.4 \
-            --dart-define=FLUTTER_BUILD_NUMBER=16 \
-            -- \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=RJ5C82BZS5 \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="Distribution Profile"
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
