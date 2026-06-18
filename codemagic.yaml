@@ -32,7 +32,6 @@ workflows:
           pod install --repo-update
       - name: Create ExportOptions.plist
         script: |
-          PROFILE_UUID=$(grep -r 'UUID' /Users/builder/Library/MobileDevice/Provisioning\ Profiles/ -A1 | grep string | head -1 | sed 's/.*<string>\(.*\)<\/string>/\1/' | tr -d '[:space:]')
           cat > /Users/builder/export_options.plist << PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -53,9 +52,11 @@ workflows:
             <key>provisioningProfiles</key>
             <dict>
               <key>com.fertiliza.app</key>
-              <string>${PROFILE_UUID}</string>
+              <string>Distribution Profile</string>
             </dict>
           </dict>
+          </plist>
+          PLIST
           </plist>
           PLIST
           echo "ExportOptions.plist created with UUID: $PROFILE_UUID"
@@ -63,7 +64,12 @@ workflows:
       - name: Build IPA
         script: |
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
+            --export-options-plist=/Users/builder/export_options.plist \
+            -- \
+            PROVISIONING_PROFILE_SPECIFIER="Distribution Profile" \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=RJ5C82BZS5
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
