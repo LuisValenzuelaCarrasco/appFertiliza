@@ -40,8 +40,8 @@ workflows:
       - name: Build IPA
         script: |
           flutter build ipa --release \
+            --no-codesign \
             --export-options-plist=/Users/builder/export_options.plist
-          find /Users/builder -name "*.ipa" 2>/dev/null
     artifacts:
       - build/ios/ipa/*.ipa
       - /Users/builder/clone/build/ios/ipa/*.ipa
