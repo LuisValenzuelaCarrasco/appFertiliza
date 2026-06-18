@@ -1,0 +1,40 @@
+[33mc1e33bf[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: empty bridging header
+[33md845449[m fix: empty bridging header
+[33m6c30b22[m fix: empty bridging header
+[33m9cf99c5[m fix: empty bridging header
+[33m18ec019[m fix: empty bridging header
+[33m20a1087[m fix: remove BOM from project.pbxproj
+[33m77fc339[m fix: use Xcode 15.4 for compatibility with awesome_notifications
+[33m2ac039d[m fix: use Xcode 15.4 for compatibility with awesome_notifications
+[33mab9af61[m fix: use Xcode 15.4 for compatibility with awesome_notifications
+[33mfc09f8f[m fix: add SWIFT_INSTALL_OBJC_HEADER NO
+[33m706575b[m fix: verbose build log
+[33maf6eeea[m fix: remove malformed SWIFT_OBJC_BRIDGING_HEADER lines
+[33m7b39426[m fix: remove malformed SWIFT_OBJC_BRIDGING_HEADER lines
+[33mb54494e[m fix: correct SPM config syntax
+[33m0019dfa[m fix: disable SPM before everything else
+[33m37e5bab[m fix: complete Profile config and restore original files
+[33m119a7cc[m fix: remove use_frameworks, fix AppDelegate and pubspec config
+[33m0b6a648[m fix: static linkage without modular headers
+[33m2458925[m fix: static linkage + clean pods + fix bridging header
+[33m0e6531b[m fix: control modular headers via post_install instead of pod declaration
+[33mebff6c4[m fix: disable modular headers for awesome_notifications
+[33m6f3c700[m fix: remove bridging header conflict
+[33m17ce3a2[m diagnose bridging header issue
+[33m514b7ae[m diagnose bridging header issue
+[33mc41dc89[m bump build number to +17
+[33mb83b353[m bump build number to +17
+[33me666209[m bump build number to +17
+[33mdeaa060[m bump build number to +17
+[33m627c0c1[m bump build number to +17
+[33m8cf66bd[m 3
+[33m8c8901e[m 2
+[33mffddba1[m fix: merge post_install blocks in Podfile
+[33m73e5063[m fix: remove BOM from project.pbxproj
+[33m58d70b5[m fix: haber prueb11
+[33m1317b97[m fix: haber prueb11
+[33md2f90d5[m fix: haber prueb11
+[33m32deefa[m fix: haber prueb11
+[33m5d035b2[m fix: haber prueb11
+[33mfe2b348[m fix: haber prueb11
+[33m5ee0d9f[m fix: haber prueb11
