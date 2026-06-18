@@ -27,7 +27,7 @@ workflows:
         script: flutter pub get
       - name: Generate launcher icons
         script: dart run flutter_launcher_icons
-      -- name: Fix bridging header issue
+      - name: Fix bridging header issue
         script: |
           echo "=== Buscando bridging headers ==="
           find /Users/builder/clone/ios -name "*-Bridging-Header.h" 2>/dev/null
