@@ -38,6 +38,14 @@ workflows:
           grep -rn "SWIFT_OBJC_BRIDGING_HEADER" /Users/builder/clone/ios/ 2>/dev/null
       - name: Build IPA
         script: |
+          set -o pipefail
+          xcodebuild archive \
+            -workspace /Users/builder/clone/ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath /Users/builder/clone/build/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            2>&1 | grep -E "error:|warning:|bridging|SWIFT_OBJC" | head -50
           flutter build ipa --release \
             --export-options-plist=/Users/builder/export_options.plist
           find /Users/builder -name "*.ipa" 2>/dev/null
