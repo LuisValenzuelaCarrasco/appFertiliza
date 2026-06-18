@@ -60,9 +60,7 @@ workflows:
             -scheme Runner \
             -configuration Release \
             -archivePath /tmp/Runner.xcarchive \
-            SWIFT_OBJC_BRIDGING_HEADER="" \
-            DEFINES_MODULE=NO \
-            2>&1 | grep -E "error:|warning:.*bridging" | head -50
+            2>&1 | grep -E "error:|bridging" | head -50
       - name: Build IPA
         script: |
           flutter build ipa --release \
