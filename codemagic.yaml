@@ -11,7 +11,7 @@ workflows:
         certificates:
           - distribution_cert
         provisioning_profiles:
-          - distribution_cert
+          - Distribution Profile
       vars:
         BUNDLE_ID: com.fertiliza.app
     scripts:
