@@ -32,44 +32,17 @@ workflows:
           pod install --repo-update
       - name: Create ExportOptions.plist
         script: |
-          cat > /Users/builder/export_options.plist << PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>RJ5C82BZS5</string>
-            <key>uploadBitcode</key>
-            <false/>
-            <key>uploadSymbols</key>
-            <true/>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>signingCertificate</key>
-            <string>Apple Distribution</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>com.fertiliza.app</key>
-              <string>Distribution Profile</string>
-            </dict>
-          </dict>
-          </plist>
-          PLIST
-          </plist>
-          PLIST
-          echo "ExportOptions.plist created with UUID: $PROFILE_UUID"
+          /usr/libexec/PlistBuddy -c "Add :method string app-store" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :teamID string RJ5C82BZS5" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :signingStyle string manual" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :signingCertificate string 'Apple Distribution'" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.fertiliza.app string 'Distribution Profile'" /Users/builder/export_options.plist
           cat /Users/builder/export_options.plist
       - name: Build IPA
         script: |
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist \
-            -- \
-            PROVISIONING_PROFILE_SPECIFIER="Distribution Profile" \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=RJ5C82BZS5
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
