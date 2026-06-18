@@ -11,7 +11,7 @@ workflows:
         certificates:
           - distribution_cert
         provisioning_profiles:
-          - Distribution Profile
+          - distribution_cert
       vars:
         BUNDLE_ID: com.fertiliza.app
     scripts:
@@ -38,7 +38,7 @@ workflows:
           /usr/libexec/PlistBuddy -c "Add :signingStyle string manual" /Users/builder/export_options.plist
           /usr/libexec/PlistBuddy -c "Add :signingCertificate string 'Apple Distribution'" /Users/builder/export_options.plist
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" /Users/builder/export_options.plist
-          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.fertiliza.app string 'Distribution Profile'" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.fertiliza.app string 'distribution_cert'" /Users/builder/export_options.plist
           cat /Users/builder/export_options.plist
       - name: Build IPA
         script: |
