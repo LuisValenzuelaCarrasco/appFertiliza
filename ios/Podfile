@@ -41,9 +41,7 @@ post_install do |installer|
       config.build_settings['APPLICATION_EXTENSION_API_ONLY'] = 'NO'
       config.build_settings['SWIFT_COMPILATION_MODE'] = 'singlefile'
       config.build_settings['DEFINES_MODULE'] = 'NO'
-      if target.name == 'awesome_notifications' || target.name == 'image_cropper'
-        config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = ''
-      end
+      config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = ''
     end
   end
 end
