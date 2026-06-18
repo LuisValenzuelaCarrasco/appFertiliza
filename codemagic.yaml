@@ -27,10 +27,18 @@ workflows:
         script: flutter pub get
       - name: Generate launcher icons
         script: dart run flutter_launcher_icons
+      - name: Fix bridging header issue
+        script: |
+          cd ios
+          find . -name "*.xcodeproj" -exec grep -l "SWIFT_OBJC_BRIDGING_HEADER" {}/project.pbxproj \; | while read proj; do
+            sed -i '' 's/SWIFT_OBJC_BRIDGING_HEADER = .*;/SWIFT_OBJC_BRIDGING_HEADER = "";/g' "$proj/project.pbxproj"
+          done
+          cd ..
       - name: Build IPA
         script: |
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
+            --export-options-plist=/Users/builder/export_options.plist \
+            2>&1 | tee /tmp/build_log.txt || (cat /tmp/build_log.txt && exit 1)
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
