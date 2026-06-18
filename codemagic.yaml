@@ -36,7 +36,7 @@ workflows:
         script: |
           cd /Users/builder/clone/ios
           rm -rf Pods Podfile.lock
-          pod install --repo-update
+          pod install --repo-update 2>&1 | grep -v "warn_for_unused"
       - name: Debug bridging error
         script: |
           cd /Users/builder/clone/ios
@@ -51,6 +51,18 @@ workflows:
             CODE_SIGN_IDENTITY="Apple Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="Distribution Profile" \
             2>&1 | grep -E "error:|bridging|\.swift" | head -100
+      
+      - name: Debug xcodebuild
+        script: |
+          cd /Users/builder/clone/ios
+          xcodebuild archive \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath /tmp/Runner.xcarchive \
+            SWIFT_OBJC_BRIDGING_HEADER="" \
+            DEFINES_MODULE=NO \
+            2>&1 | grep -E "error:|warning:.*bridging" | head -50
       - name: Build IPA
         script: |
           flutter build ipa --release \
