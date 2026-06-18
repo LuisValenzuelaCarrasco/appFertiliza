@@ -29,11 +29,41 @@ workflows:
         script: |
           cd $CM_BUILD_DIR/ios
           rm -rf Pods Podfile.lock .symlinks
-          pod install --repo-update --verbose 2>&1
+          pod install --repo-update
+      - name: Create ExportOptions.plist
+        script: |
+          PROFILE_UUID=$(grep -r 'UUID' /Users/builder/Library/MobileDevice/Provisioning\ Profiles/ -A1 | grep string | head -1 | sed 's/.*<string>\(.*\)<\/string>/\1/' | tr -d '[:space:]')
+          cat > /Users/builder/export_options.plist << PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>RJ5C82BZS5</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.fertiliza.app</key>
+              <string>${PROFILE_UUID}</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+          echo "ExportOptions.plist created with UUID: $PROFILE_UUID"
+          cat /Users/builder/export_options.plist
       - name: Build IPA
         script: |
-          flutter build ipa --release --no-codesign 2>&1 || true
-          flutter build ipa --release 2>&1
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
