@@ -6,16 +6,19 @@ workflows:
       app_store_connect: Codemagic
     environment:
       flutter: stable
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.fertiliza.app
       vars:
         BUNDLE_ID: com.fertiliza.app
     scripts:
       - name: Set up code signing
         script: |
           keychain initialize
+          keychain add-certificates
           app-store-connect fetch-signing-files $BUNDLE_ID \
             --type IOS_APP_STORE \
             --create
-          keychain add-certificates
           xcode-project use-profiles
       - name: Install dependencies
         script: flutter pub get
