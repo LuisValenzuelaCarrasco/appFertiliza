@@ -39,8 +39,8 @@ workflows:
           pod install --repo-update
       - name: Build IPA
         script: |
+          find . -name "*.xcconfig" -exec grep -l "SWIFT_COMPILATION_MODE" {} \;
           flutter build ipa --release \
-            --no-codesign \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
