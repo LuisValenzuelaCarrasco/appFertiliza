@@ -6,6 +6,7 @@ workflows:
       app_store_connect: Codemagic
     environment:
       flutter: stable
+      xcode: 15.4
       ios_signing:
         certificates:
           - distribution_cert
@@ -39,8 +40,7 @@ workflows:
       - name: Build IPA
         script: |
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist \
-            -v 2>&1 | grep -A5 "error:" | head -50
+            --export-options-plist=/Users/builder/export_options.plist
           find /Users/builder -name "*.ipa" 2>/dev/null
     artifacts:
       - build/ios/ipa/*.ipa
