@@ -38,6 +38,14 @@ workflows:
           pod install --repo-update
       - name: Build IPA
         script: |
+          cd /Users/builder/clone/ios
+          xcodebuild archive \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath /tmp/Runner.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | grep -E "error:|bridging|module interface|SWIFT_OBJC" | head -30
           flutter build ipa --release \
             --export-options-plist=/Users/builder/export_options.plist
           find /Users/builder -name "*.ipa" 2>/dev/null
