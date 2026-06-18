@@ -12,13 +12,8 @@ workflows:
       vars:
         BUNDLE_ID: com.fertiliza.app
     scripts:
-      - name: Set up code signing
+      - name: Set up code signing settings on Xcode project
         script: |
-          keychain initialize
-          keychain add-certificates
-          app-store-connect fetch-signing-files $BUNDLE_ID \
-            --type IOS_APP_STORE \
-            --create
           xcode-project use-profiles
       - name: Install dependencies
         script: flutter pub get
@@ -27,7 +22,7 @@ workflows:
       - name: Build IPA
         script: |
           flutter build ipa --release \
-            --export-options-plist=$CM_BUILD_DIR/ios/ExportOptions.plist
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
