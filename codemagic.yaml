@@ -27,24 +27,11 @@ workflows:
         script: flutter pub get
       - name: Generate launcher icons
         script: dart run flutter_launcher_icons
-      - name: Fix bridging header issue
-        script: |
-          echo "=== Buscando bridging headers ==="
-          find /Users/builder/clone/ios -name "*-Bridging-Header.h" 2>/dev/null
-          find /Users/builder/clone/ios -name "*.h" 2>/dev/null
-          echo "=== SWIFT_OBJC_BRIDGING_HEADER en project.pbxproj ==="
-          grep -n "SWIFT_OBJC_BRIDGING_HEADER" /Users/builder/clone/ios/Runner.xcodeproj/project.pbxproj || echo "No encontrado"
-          echo "=== Limpiando ==="
-          sed -i '' 's/SWIFT_OBJC_BRIDGING_HEADER = .*;/SWIFT_OBJC_BRIDGING_HEADER = "";/g' /Users/builder/clone/ios/Runner.xcodeproj/project.pbxproj
-          grep -n "SWIFT_OBJC_BRIDGING_HEADER" /Users/builder/clone/ios/Runner.xcodeproj/project.pbxproj || echo "Limpiado correctamente"
       - name: Build IPA
         script: |
           flutter build ipa --release \
             --export-options-plist=/Users/builder/export_options.plist
-          echo "=== Buscando IPA ==="
           find /Users/builder -name "*.ipa" 2>/dev/null
-          echo "=== Contenido de build/ios ==="
-          ls -la /Users/builder/clone/build/ios/ 2>/dev/null || echo "No existe esa ruta"
     artifacts:
       - build/ios/ipa/*.ipa
       - /Users/builder/clone/build/ios/ipa/*.ipa
