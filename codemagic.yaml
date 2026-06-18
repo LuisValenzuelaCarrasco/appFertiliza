@@ -27,6 +27,15 @@ workflows:
         script: flutter pub get
       - name: Generate launcher icons
         script: dart run flutter_launcher_icons
+      - name: Diagnose bridging header
+        script: |
+          cd /Users/builder/clone/ios
+          pod install 2>&1
+          echo "=== Pods con bridging headers ==="
+          find /Users/builder/clone/ios/Pods -name "*-Bridging-Header*" 2>/dev/null
+          echo "=== project.pbxproj bridging headers ==="
+          grep -n "SWIFT_OBJC_BRIDGING_HEADER" /Users/builder/clone/ios/Pods/Pods.xcodeproj/project.pbxproj 2>/dev/null || echo "No encontrado en Pods"
+          grep -rn "SWIFT_OBJC_BRIDGING_HEADER" /Users/builder/clone/ios/ 2>/dev/null
       - name: Build IPA
         script: |
           flutter build ipa --release \
