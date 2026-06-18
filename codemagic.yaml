@@ -15,7 +15,8 @@ workflows:
           app-store-connect fetch-signing-files $BUNDLE_ID \
             --type IOS_APP_STORE \
             --create
-          keychain add-certificates
+          keychain add-certificates \
+            --certificate-name FertilizaDistribution
           xcode-project use-profiles
       - name: Install dependencies
         script: flutter pub get
