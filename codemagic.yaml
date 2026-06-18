@@ -22,7 +22,7 @@ workflows:
           security set-key-partition-list -S apple-tool:,apple: -s -k "" ~/Library/Keychains/login.keychain-db
           security list-keychains -s ~/Library/Keychains/login.keychain-db
           security default-keychain -s ~/Library/Keychains/login.keychain-db
-          xcode-project use-profiles
+          xcode-project use-profiles --verbose
       - name: Install dependencies
         script: flutter pub get
       - name: Generate launcher icons
