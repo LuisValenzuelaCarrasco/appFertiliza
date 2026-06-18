@@ -6,7 +6,7 @@ workflows:
       app_store_connect: Codemagic
     environment:
       flutter: stable
-      xcode: 16
+      xcode: 26
       ios_signing:
         certificates:
           - distribution_cert
@@ -32,6 +32,7 @@ workflows:
           pod install --repo-update
       - name: Create ExportOptions.plist
         script: |
+          rm -f /Users/builder/export_options.plist
           /usr/libexec/PlistBuddy -c "Add :method string app-store" /Users/builder/export_options.plist
           /usr/libexec/PlistBuddy -c "Add :teamID string RJ5C82BZS5" /Users/builder/export_options.plist
           /usr/libexec/PlistBuddy -c "Add :signingStyle string manual" /Users/builder/export_options.plist
