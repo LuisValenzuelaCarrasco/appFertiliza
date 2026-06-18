@@ -53,10 +53,9 @@ workflows:
             2>&1 | grep -E "error:|bridging|\.swift" | head -100
       - name: Build IPA
         script: |
-          set -o pipefail
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist 2>&1 | tee /tmp/build.log
-          grep -i "bridging\|error:" /tmp/build.log | head -30
+            --export-options-plist=/Users/builder/export_options.plist \
+            --verbose 2>&1 | grep -v "^#" | grep -v "^$" | tail -100
     artifacts:
       - build/ios/ipa/*.ipa
       - /Users/builder/clone/build/ios/ipa/*.ipa
