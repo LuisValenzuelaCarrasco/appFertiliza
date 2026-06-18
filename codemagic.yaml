@@ -7,8 +7,10 @@ workflows:
     environment:
       flutter: stable
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.fertiliza.app
+        certificates:
+          - distribution_cert
+        provisioning_profiles:
+          - Distribution Profile
       vars:
         BUNDLE_ID: com.fertiliza.app
     scripts:
