@@ -14,6 +14,10 @@ workflows:
       vars:
         BUNDLE_ID: com.fertiliza.app
     scripts:
+      - name: Disable Swift Package Manager
+        script: |
+          flutter config --no-enable-swift-package-manager
+          defaults write com.apple.dt.Xcode IDEPackageSupportUseBuiltinSCM NO
       - name: Set up code signing settings on Xcode project
         script: |
           gem update xcodeproj
