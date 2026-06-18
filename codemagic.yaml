@@ -32,11 +32,6 @@ workflows:
           cd /Users/builder/clone/ios
           rm -rf Pods Podfile.lock
           pod install --repo-update
-      - name: Fix bridging header in pbxproj
-        script: |
-          sed -i '' 's/SWIFT_OBJC_BRIDGING_HEADER = "Runner\/Runner-Bridging-Header.h";/SWIFT_OBJC_BRIDGING_HEADER = "";/g' /Users/builder/clone/ios/Runner.xcodeproj/project.pbxproj
-          echo "Verificando:"
-          grep "SWIFT_OBJC_BRIDGING_HEADER" /Users/builder/clone/ios/Runner.xcodeproj/project.pbxproj
       - name: Build IPA
         script: |
           flutter build ipa --release \
