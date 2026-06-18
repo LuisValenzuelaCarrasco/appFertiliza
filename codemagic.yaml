@@ -18,57 +18,24 @@ workflows:
       - name: Disable Swift Package Manager
         script: |
           flutter config --no-enable-swift-package-manager
-          defaults write com.apple.dt.Xcode IDEPackageSupportUseBuiltinSCM NO
       - name: Set up code signing settings on Xcode project
         script: |
-          gem update xcodeproj
-          CERT=$(find /Users/builder/Library/MobileDevice/Certificates -name "*.p12")
-          security import "$CERT" -k ~/Library/Keychains/login.keychain-db -P "" -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list -S apple-tool:,apple: -s -k "" ~/Library/Keychains/login.keychain-db
-          security list-keychains -s ~/Library/Keychains/login.keychain-db
-          security default-keychain -s ~/Library/Keychains/login.keychain-db
           xcode-project use-profiles --verbose
       - name: Install dependencies
         script: flutter pub get
       - name: Generate launcher icons
         script: dart run flutter_launcher_icons
-      - name: Clean and reinstall pods
+      - name: Install pods
         script: |
-          cd /Users/builder/clone/ios
-          rm -rf Pods Podfile.lock
-          pod install --repo-update 2>&1 | grep -v "warn_for_unused"
-      - name: Debug bridging error
-        script: |
-          cd /Users/builder/clone/ios
-          xcodebuild archive \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath /tmp/Runner.xcarchive \
-            -allowProvisioningUpdates \
-            CODE_SIGN_STYLE=Manual \
-            DEVELOPMENT_TEAM=RJ5C82BZS5 \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="Distribution Profile" \
-            2>&1 | grep -E "error:|bridging|\.swift" | head -100
-      
-      - name: Debug xcodebuild
-        script: |
-          cd /Users/builder/clone/ios
-          xcodebuild archive \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath /tmp/Runner.xcarchive \
-            2>&1 | grep -E "error:|bridging" | head -50
+          cd $CM_BUILD_DIR/ios
+          rm -rf Pods Podfile.lock .symlinks
+          pod install --repo-update --verbose 2>&1
       - name: Build IPA
         script: |
-          flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist \
-            --verbose 2>&1 | grep -v "^#" | grep -v "^$" | tail -100
+          flutter build ipa --release --no-codesign 2>&1 || true
+          flutter build ipa --release 2>&1
     artifacts:
       - build/ios/ipa/*.ipa
-      - /Users/builder/clone/build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
         auth: integration
