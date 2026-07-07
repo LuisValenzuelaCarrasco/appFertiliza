@@ -7,20 +7,12 @@ workflows:
     environment:
       flutter: stable
       xcode: 26
-      ios_signing:
-        certificates:
-          - distribution_cert
-        provisioning_profiles:
-          - Distribution Profile
       vars:
         BUNDLE_ID: com.luisvalenzuela.fertiliza
     scripts:
       - name: Disable Swift Package Manager
         script: |
           flutter config --no-enable-swift-package-manager
-      - name: Set up code signing settings on Xcode project
-        script: |
-          xcode-project use-profiles --verbose
       - name: Install dependencies
         script: flutter pub get
       - name: Generate launcher icons
@@ -30,20 +22,19 @@ workflows:
           cd $CM_BUILD_DIR/ios
           rm -rf Pods Podfile.lock .symlinks
           pod install --repo-update
-      - name: Create ExportOptions.plist
+      - name: Fetch signing files
         script: |
-          rm -f /Users/builder/export_options.plist
-          /usr/libexec/PlistBuddy -c "Add :method string app-store" /Users/builder/export_options.plist
-          /usr/libexec/PlistBuddy -c "Add :teamID string RJ5C82BZS5" /Users/builder/export_options.plist
-          /usr/libexec/PlistBuddy -c "Add :signingStyle string manual" /Users/builder/export_options.plist
-          /usr/libexec/PlistBuddy -c "Add :signingCertificate string 'Apple Distribution'" /Users/builder/export_options.plist
-          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" /Users/builder/export_options.plist
-          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.luisvalenzuela.fertiliza string 'distribution_cert'" /Users/builder/export_options.plist
-          cat /Users/builder/export_options.plist
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles --verbose
       - name: Build IPA
         script: |
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
+            --export-options-plist=/Users/builder/export_options.plist || \
+          flutter build ipa --release
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
