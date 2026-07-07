@@ -7,18 +7,12 @@ workflows:
     environment:
       flutter: stable
       xcode: 26
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.luisvalenzuela.fertiliza
       vars:
         BUNDLE_ID: com.luisvalenzuela.fertiliza
     scripts:
       - name: Disable Swift Package Manager
         script: |
           flutter config --no-enable-swift-package-manager
-      - name: Set up code signing settings on Xcode project
-        script: |
-          xcode-project use-profiles --verbose
       - name: Install dependencies
         script: flutter pub get
       - name: Generate launcher icons
@@ -28,6 +22,14 @@ workflows:
           cd $CM_BUILD_DIR/ios
           rm -rf Pods Podfile.lock .symlinks
           pod install --repo-update
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles --verbose
       - name: Build IPA
         script: |
           flutter build ipa --release
