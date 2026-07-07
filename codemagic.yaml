@@ -13,7 +13,7 @@ workflows:
         provisioning_profiles:
           - Distribution Profile
       vars:
-        BUNDLE_ID: com.fertiliza.app
+        BUNDLE_ID: com.luisvalenzuela.fertiliza
     scripts:
       - name: Disable Swift Package Manager
         script: |
@@ -38,7 +38,7 @@ workflows:
           /usr/libexec/PlistBuddy -c "Add :signingStyle string manual" /Users/builder/export_options.plist
           /usr/libexec/PlistBuddy -c "Add :signingCertificate string 'Apple Distribution'" /Users/builder/export_options.plist
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles dict" /Users/builder/export_options.plist
-          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.fertiliza.app string 'distribution_cert'" /Users/builder/export_options.plist
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.luisvalenzuela.fertiliza string 'distribution_cert'" /Users/builder/export_options.plist
           cat /Users/builder/export_options.plist
       - name: Build IPA
         script: |
@@ -49,4 +49,4 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: false
+        submit_to_testflight: true
