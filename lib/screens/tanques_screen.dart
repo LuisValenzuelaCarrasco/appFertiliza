@@ -67,8 +67,128 @@ void _debugSnack(BuildContext context, String msg) {
 const CropAspectRatio _kCropAspectRatio =
     CropAspectRatio(ratioX: 16, ratioY: 9);
 
-Future<String?> _pickImageFromSource(BuildContext context) async {
+Future<CroppedFile?> _openCropper(String sourcePath) {
+  return ImageCropper().cropImage(
+    sourcePath: sourcePath,
+    compressFormat: ImageCompressFormat.jpg,
+    compressQuality: 100,
+    aspectRatio: _kCropAspectRatio,
+    uiSettings: [
+      AndroidUiSettings(
+        toolbarTitle: 'Ajustar imagen',
+        toolbarColor: const Color(0xFF1B5E20),
+        toolbarWidgetColor: Colors.white,
+        activeControlsWidgetColor: const Color(0xFF4CAF50),
+        statusBarColor: const Color(0xFF1B5E20),
+        backgroundColor: Colors.black,
+        initAspectRatio: CropAspectRatioPreset.ratio16x9,
+        lockAspectRatio: false,
+        hideBottomControls: true,
+      ),
+      IOSUiSettings(
+        title: 'Ajustar imagen',
+        aspectRatioLockEnabled: false,
+        resetAspectRatioEnabled: false,
+        aspectRatioPickerButtonHidden: true,
+        rotateButtonsHidden: true,
+        rotateClockwiseButtonHidden: true,
+        cancelButtonTitle: 'Cancelar',
+        doneButtonTitle: 'Listo',
+      ),
+    ],
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Toma/elige una imagen de la fuente indicada, la recorta y (en iOS) la
+// persiste en Documents. NO abre ningún modal adicional de Flutter: el
+// picker nativo y el cropper nativo se presentan directamente sobre lo que
+// esté en pantalla (incluido un showModalBottomSheet ya abierto), sin
+// necesidad de cerrarlo. Esto evita el bug de iOS 26 que impide apilar dos
+// modales *de Flutter* uno sobre otro.
+// ---------------------------------------------------------------------------
+Future<String?> _captureImage(BuildContext context, ImageSource source) async {
   final picker = ImagePicker();
+
+  _debugSnack(context, 'source elegido = $source');
+
+  if (Platform.isIOS) {
+    await Future.delayed(const Duration(milliseconds: 400));
+  }
+  if (!context.mounted) return null;
+
+  XFile? file;
+  try {
+    file = await picker.pickImage(source: source, imageQuality: 100);
+    _debugSnack(
+        context, 'pickImage -> ${file == null ? "NULL" : "OK: ${file.path}"}');
+  } catch (e) {
+    _debugSnack(context, 'EXCEPCIÓN en pickImage: $e');
+    return null;
+  }
+
+  if (!context.mounted) return null;
+  if (file == null) return null;
+
+  if (Platform.isIOS) {
+    // Margen para que el UIImagePickerController termine de cerrarse antes
+    // de presentar el cropper; si no, iOS puede rechazar la presentación y
+    // el cropper devuelve NULL sin lanzar excepción.
+    await Future.delayed(const Duration(milliseconds: 700));
+  }
+  if (!context.mounted) return null;
+
+  _debugSnack(context, 'Abriendo cropImage()...');
+
+  CroppedFile? cropped;
+  try {
+    cropped = await _openCropper(file.path);
+    _debugSnack(context,
+        'cropImage (intento 1) -> ${cropped == null ? "NULL" : "OK: ${cropped.path}"}');
+
+    if (cropped == null && Platform.isIOS) {
+      _debugSnack(context,
+          'cropImage devolvió NULL (probable conflicto de transición). Reintentando...');
+      await Future.delayed(const Duration(milliseconds: 700));
+      if (!context.mounted) return null;
+      cropped = await _openCropper(file.path);
+      _debugSnack(context,
+          'cropImage (intento 2) -> ${cropped == null ? "NULL" : "OK: ${cropped.path}"}');
+    }
+  } catch (e) {
+    _debugSnack(context, 'EXCEPCIÓN en cropImage: $e');
+    return null;
+  }
+
+  if (!context.mounted) return null;
+  if (cropped == null) return null;
+
+  String finalPath;
+  if (Platform.isIOS) {
+    try {
+      finalPath = await _persistImageIOS(cropped.path);
+      _debugSnack(context, 'Imagen persistida: $finalPath');
+      _debugSnack(context,
+          '¿existe el archivo persistido? ${await File(finalPath).exists()}');
+    } catch (e) {
+      _debugSnack(context, 'EXCEPCIÓN al persistir: $e');
+      finalPath = cropped.path;
+    }
+  } else {
+    finalPath = cropped.path;
+  }
+
+  _debugSnack(context, 'captureImage -> devolviendo: $finalPath');
+  return finalPath;
+}
+
+// ---------------------------------------------------------------------------
+// Usado por Android: abre el chooser (cámara/galería) como un
+// showModalBottomSheet propio y luego captura. En Android nunca hay un
+// sheet padre abierto al mismo tiempo, así que apilar este modal no tiene
+// el problema de iOS. NO TOCAR este flujo para Android.
+// ---------------------------------------------------------------------------
+Future<String?> _pickImageFromSource(BuildContext context) async {
   ImageSource? source;
 
   if (!context.mounted) return null;
@@ -110,134 +230,8 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
     _debugSnack(context, 'source elegido = NULL (usuario cerró el chooser)');
     return null;
   }
-  _debugSnack(context, 'source elegido = $source');
 
-  if (Platform.isIOS) {
-    await Future.delayed(const Duration(milliseconds: 400));
-  }
-
-  if (!context.mounted) return null;
-
-  XFile? file;
-  try {
-    file = await picker.pickImage(source: source!, imageQuality: 100);
-    _debugSnack(
-        context, 'pickImage -> ${file == null ? "NULL" : "OK: ${file.path}"}');
-  } catch (e) {
-    _debugSnack(context, 'EXCEPCIÓN en pickImage: $e');
-    return null;
-  }
-
-  if (!context.mounted) return null;
-  if (file == null) return null;
-
-  if (Platform.isIOS) {
-    await Future.delayed(const Duration(milliseconds: 400));
-  }
-
-  if (!context.mounted) return null;
-
-  _debugSnack(context, 'Abriendo cropImage()...');
-
-  CroppedFile? cropped;
-  try {
-    cropped = await ImageCropper().cropImage(
-      sourcePath: file.path,
-      compressFormat: ImageCompressFormat.jpg,
-      compressQuality: 100,
-      aspectRatio: _kCropAspectRatio,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Ajustar imagen',
-          toolbarColor: const Color(0xFF1B5E20),
-          toolbarWidgetColor: Colors.white,
-          activeControlsWidgetColor: const Color(0xFF4CAF50),
-          statusBarColor: const Color(0xFF1B5E20),
-          backgroundColor: Colors.black,
-          initAspectRatio: CropAspectRatioPreset.ratio16x9,
-          lockAspectRatio: false,
-          hideBottomControls: true,
-        ),
-        IOSUiSettings(
-          title: 'Ajustar imagen',
-          aspectRatioLockEnabled: false,
-          resetAspectRatioEnabled: false,
-          aspectRatioPickerButtonHidden: true,
-          rotateButtonsHidden: true,
-          rotateClockwiseButtonHidden: true,
-          cancelButtonTitle: 'Cancelar',
-          doneButtonTitle: 'Listo',
-        ),
-      ],
-    );
-    _debugSnack(context,
-        'cropImage -> ${cropped == null ? "NULL" : "OK: ${cropped.path}"}');
-  } catch (e) {
-    _debugSnack(context, 'EXCEPCIÓN en cropImage: $e');
-    return null;
-  }
-
-  if (!context.mounted) {
-    _debugSnack(
-        context, 'context NO montado tras cropImage (esto no debería verse)');
-    return null;
-  }
-  if (cropped == null) return null;
-
-  String finalPath;
-  if (Platform.isIOS) {
-    try {
-      finalPath = await _persistImageIOS(cropped.path);
-      _debugSnack(context, 'Imagen persistida: $finalPath');
-      _debugSnack(context,
-          '¿existe el archivo persistido? ${await File(finalPath).exists()}');
-    } catch (e) {
-      _debugSnack(context, 'EXCEPCIÓN al persistir: $e');
-      finalPath = cropped.path;
-    }
-  } else {
-    finalPath = cropped.path;
-  }
-
-  _debugSnack(context, 'pickImageFromSource -> devolviendo: $finalPath');
-  return finalPath;
-}
-
-// ---------------------------------------------------------------------------
-// _TankDraft: estado provisional del formulario que usamos para preservar
-// lo ya escrito cuando cerramos el sheet a propósito para poder tomar la
-// foto sin que haya dos modales apilados (bug de iOS 26).
-// ---------------------------------------------------------------------------
-class _TankDraft {
-  final String name;
-  final String volume;
-  final DateTime? setupDate;
-  final String? imagePath;
-
-  _TankDraft({
-    this.name = '',
-    this.volume = '',
-    this.setupDate,
-    this.imagePath,
-  });
-
-  _TankDraft copyWith({
-    String? name,
-    String? volume,
-    DateTime? setupDate,
-    String? imagePath,
-  }) {
-    return _TankDraft(
-      name: name ?? this.name,
-      volume: volume ?? this.volume,
-      setupDate: setupDate ?? this.setupDate,
-      imagePath: imagePath ?? this.imagePath,
-    );
-  }
-
-  @override
-  String toString() =>
-      '_TankDraft(name: $name, volume: $volume, imagePath: $imagePath)';
+  return _captureImage(context, source!);
 }
 
 class TanquesScreen extends StatelessWidget {
@@ -283,37 +277,16 @@ class TanquesScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _showAddDialog(BuildContext context, {_TankDraft? draft}) async {
-    _debugSnack(context, 'abriendo sheet con draft: $draft');
-
-    final requestPhoto = await showModalBottomSheet<_TankDraft>(
+  void _showAddDialog(BuildContext context) {
+    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => _AddTankSheet(initialDraft: draft),
+      builder: (_) => const _AddTankSheet(),
     );
-
-    if (requestPhoto == null) {
-      _debugSnack(context, 'sheet cerrado normalmente (sin pedir foto)');
-      return;
-    }
-    if (!context.mounted) return;
-
-    _debugSnack(context, 'sheet pidió foto, draft recibido: $requestPhoto');
-
-    final path = await _pickImageFromSource(context);
-    _debugSnack(
-        context, 'path devuelto por pickImageFromSource: ${path ?? "NULL"}');
-
-    if (!context.mounted) return;
-
-    final updatedDraft = requestPhoto.copyWith(imagePath: path);
-    _debugSnack(context, 'draft actualizado antes de reabrir: $updatedDraft');
-
-    _showAddDialog(context, draft: updatedDraft);
   }
 }
 
@@ -333,49 +306,16 @@ class _TankCardState extends State<_TankCard> {
     );
   }
 
-  void _showEditSheet({_TankDraft? draft}) {
-    _debugSnack(context, 'abriendo edit sheet con draft: $draft');
-
-    showModalBottomSheet<_TankDraft>(
+  void _showEditSheet() {
+    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => _EditTankSheet(tank: widget.tank, initialDraft: draft),
-    ).then((requestPhoto) async {
-      if (requestPhoto == null || !mounted) {
-        _debugSnack(context, 'edit sheet cerrado normalmente (sin pedir foto)');
-        return;
-      }
-
-      _debugSnack(
-          context, 'edit sheet pidió foto, draft recibido: $requestPhoto');
-
-      final oldPath = requestPhoto.imagePath;
-      final path = await _pickImageFromSource(context);
-      _debugSnack(
-          context, 'path devuelto por pickImageFromSource: ${path ?? "NULL"}');
-      if (!mounted) return;
-
-      if (Platform.isIOS &&
-          path != null &&
-          oldPath != null &&
-          oldPath != path) {
-        try {
-          final oldFile = File(oldPath);
-          if (await oldFile.exists()) {
-            await oldFile.delete();
-          }
-        } catch (_) {}
-      }
-
-      if (!mounted) return;
-      final updatedDraft = requestPhoto.copyWith(imagePath: path);
-      _debugSnack(context, 'draft actualizado antes de reabrir: $updatedDraft');
-      _showEditSheet(draft: updatedDraft);
-    });
+      builder: (_) => _EditTankSheet(tank: widget.tank),
+    );
   }
 
   @override
@@ -491,36 +431,21 @@ class _TankCardState extends State<_TankCard> {
 }
 
 class _AddTankSheet extends StatefulWidget {
-  final _TankDraft? initialDraft;
-  const _AddTankSheet({this.initialDraft});
+  const _AddTankSheet();
 
   @override
   State<_AddTankSheet> createState() => _AddTankSheetState();
 }
 
 class _AddTankSheetState extends State<_AddTankSheet> {
-  late TextEditingController _nameCtrl;
-  late TextEditingController _volCtrl;
-  late DateTime _setupDate;
+  final _nameCtrl = TextEditingController();
+  final _volCtrl = TextEditingController();
+  DateTime _setupDate = DateTime.now();
   String? _imagePath;
 
-  @override
-  void initState() {
-    super.initState();
-    final draft = widget.initialDraft;
-    _nameCtrl = TextEditingController(text: draft?.name ?? '');
-    _volCtrl = TextEditingController(text: draft?.volume ?? '');
-    _setupDate = draft?.setupDate ?? DateTime.now();
-    _imagePath = draft?.imagePath;
-    // Confirmamos, justo al construir el sheet reabierto, qué imagePath
-    // quedó cargado en el estado local.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _debugSnack(context,
-            'AddTankSheet reabierto con _imagePath = ${_imagePath ?? "NULL"}');
-      }
-    });
-  }
+  // Controla si mostramos el selector de fuente (cámara/galería) inline,
+  // dentro del propio sheet, en vez de abrir un segundo modal de Flutter.
+  bool _choosingSource = false;
 
   @override
   void dispose() {
@@ -529,23 +454,25 @@ class _AddTankSheetState extends State<_AddTankSheet> {
     super.dispose();
   }
 
-  _TankDraft _currentDraft() => _TankDraft(
-        name: _nameCtrl.text,
-        volume: _volCtrl.text,
-        setupDate: _setupDate,
-        imagePath: _imagePath,
-      );
-
-  Future<void> _pickImage() async {
+  void _pickImage() {
     if (Platform.isIOS) {
-      final draft = _currentDraft();
-      _debugSnack(
-          context, 'cerrando AddTankSheet para tomar foto, draft: $draft');
-      Navigator.pop(context, draft);
+      // En iOS mostramos el elegidor DENTRO del sheet (sin abrir otro
+      // modal), para no chocar con el bug de iOS 26 de modales apilados.
+      setState(() => _choosingSource = true);
       return;
     }
 
-    final path = await _pickImageFromSource(context);
+    // Android: comportamiento intacto, sin cambios.
+    _pickImageFromSource(context).then((path) {
+      if (!mounted) return;
+      if (path != null) setState(() => _imagePath = path);
+    });
+  }
+
+  Future<void> _captureFromSource(ImageSource source) async {
+    setState(() => _choosingSource = false);
+    final path = await _captureImage(context, source);
+    if (!mounted) return;
     if (path != null) setState(() => _imagePath = path);
   }
 
@@ -596,7 +523,13 @@ class _AddTankSheetState extends State<_AddTankSheet> {
             const Text('Nuevo acuario',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            _ImagePickerCard(imagePath: _imagePath, onTap: _pickImage),
+            _choosingSource
+                ? _InlineSourceChooser(
+                    onCamera: () => _captureFromSource(ImageSource.camera),
+                    onGallery: () => _captureFromSource(ImageSource.gallery),
+                    onCancel: () => setState(() => _choosingSource = false),
+                  )
+                : _ImagePickerCard(imagePath: _imagePath, onTap: _pickImage),
             const SizedBox(height: 16),
             TextField(
               controller: _nameCtrl,
@@ -642,8 +575,7 @@ class _AddTankSheetState extends State<_AddTankSheet> {
 
 class _EditTankSheet extends StatefulWidget {
   final TankModel tank;
-  final _TankDraft? initialDraft;
-  const _EditTankSheet({required this.tank, this.initialDraft});
+  const _EditTankSheet({required this.tank});
 
   @override
   State<_EditTankSheet> createState() => _EditTankSheetState();
@@ -655,22 +587,16 @@ class _EditTankSheetState extends State<_EditTankSheet> {
   late DateTime _setupDate;
   String? _imagePath;
 
+  bool _choosingSource = false;
+
   @override
   void initState() {
     super.initState();
-    final draft = widget.initialDraft;
-    _nameCtrl = TextEditingController(text: draft?.name ?? widget.tank.name);
-    _volCtrl = TextEditingController(
-      text: draft?.volume ?? widget.tank.volume.toStringAsFixed(0),
-    );
-    _setupDate = draft?.setupDate ?? widget.tank.setupDate;
-    _imagePath = draft?.imagePath ?? widget.tank.imagePath;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _debugSnack(context,
-            'EditTankSheet reabierto con _imagePath = ${_imagePath ?? "NULL"}');
-      }
-    });
+    _nameCtrl = TextEditingController(text: widget.tank.name);
+    _volCtrl =
+        TextEditingController(text: widget.tank.volume.toStringAsFixed(0));
+    _setupDate = widget.tank.setupDate;
+    _imagePath = widget.tank.imagePath;
   }
 
   @override
@@ -680,24 +606,37 @@ class _EditTankSheetState extends State<_EditTankSheet> {
     super.dispose();
   }
 
-  _TankDraft _currentDraft() => _TankDraft(
-        name: _nameCtrl.text,
-        volume: _volCtrl.text,
-        setupDate: _setupDate,
-        imagePath: _imagePath,
-      );
-
-  Future<void> _pickImage() async {
+  void _pickImage() {
     if (Platform.isIOS) {
-      final draft = _currentDraft();
-      _debugSnack(
-          context, 'cerrando EditTankSheet para tomar foto, draft: $draft');
-      Navigator.pop(context, draft);
+      setState(() => _choosingSource = true);
       return;
     }
 
-    final path = await _pickImageFromSource(context);
-    if (path != null) setState(() => _imagePath = path);
+    // Android: comportamiento intacto, sin cambios.
+    _pickImageFromSource(context).then((path) {
+      if (!mounted) return;
+      if (path != null) setState(() => _imagePath = path);
+    });
+  }
+
+  Future<void> _captureFromSource(ImageSource source) async {
+    setState(() => _choosingSource = false);
+    final oldPath = _imagePath;
+    final path = await _captureImage(context, source);
+    if (!mounted) return;
+    if (path == null) return;
+
+    if (Platform.isIOS && oldPath != null && oldPath != path) {
+      try {
+        final oldFile = File(oldPath);
+        if (await oldFile.exists()) {
+          await oldFile.delete();
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    setState(() => _imagePath = path);
   }
 
   Future<void> _pickDate() async {
@@ -742,7 +681,13 @@ class _EditTankSheetState extends State<_EditTankSheet> {
             const Text('Editar acuario',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            _ImagePickerCard(imagePath: _imagePath, onTap: _pickImage),
+            _choosingSource
+                ? _InlineSourceChooser(
+                    onCamera: () => _captureFromSource(ImageSource.camera),
+                    onGallery: () => _captureFromSource(ImageSource.gallery),
+                    onCancel: () => setState(() => _choosingSource = false),
+                  )
+                : _ImagePickerCard(imagePath: _imagePath, onTap: _pickImage),
             const SizedBox(height: 16),
             TextField(
               controller: _nameCtrl,
@@ -781,6 +726,90 @@ class _EditTankSheetState extends State<_EditTankSheet> {
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Selector de fuente (cámara/galería) mostrado INLINE dentro del sheet, sin
+// abrir ningún modal adicional de Flutter. Reemplaza temporalmente a
+// _ImagePickerCard mientras _choosingSource es true.
+// ---------------------------------------------------------------------------
+class _InlineSourceChooser extends StatelessWidget {
+  final VoidCallback onCamera;
+  final VoidCallback onGallery;
+  final VoidCallback onCancel;
+
+  const _InlineSourceChooser({
+    required this.onCamera,
+    required this.onGallery,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 140,
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.grey.shade200,
+      ),
+      child: Stack(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: onCamera,
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_alt,
+                          size: 32, color: Color(0xFF1A5276)),
+                      SizedBox(height: 8),
+                      Text('Tomar foto',
+                          style: TextStyle(color: Color(0xFF1A5276))),
+                    ],
+                  ),
+                ),
+              ),
+              Container(width: 1, height: 100, color: Colors.grey.shade400),
+              Expanded(
+                child: InkWell(
+                  onTap: onGallery,
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.photo_library,
+                          size: 32, color: Color(0xFF1A5276)),
+                      SizedBox(height: 8),
+                      Text('Galería',
+                          style: TextStyle(color: Color(0xFF1A5276))),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Positioned(
+            top: 6,
+            right: 6,
+            child: GestureDetector(
+              onTap: onCancel,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.black45,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 16, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
