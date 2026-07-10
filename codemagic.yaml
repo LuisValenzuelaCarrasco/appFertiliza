@@ -9,9 +9,9 @@ workflows:
       xcode: 26
       ios_signing:
         certificates:
-          - distribution_cert_new
+          - com.fertiliza.app
         provisioning_profiles:
-          - Distribution Profile
+          - Fertiliza App Store Distribution
       vars:
         BUNDLE_ID: com.fertiliza.app
     scripts:
