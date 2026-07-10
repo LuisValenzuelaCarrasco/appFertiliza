@@ -59,29 +59,9 @@ Future<String> _persistImageIOS(String tempPath) async {
   return savedFile.path;
 }
 
-Future<void> _showDebugLog(BuildContext context, List<String> log) async {
-  if (!context.mounted) return;
-  await showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text('DEBUG: registro del flujo de foto'),
-      content: SingleChildScrollView(
-        child: Text(log.join('\n\n')),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cerrar'),
-        ),
-      ],
-    ),
-  );
-}
-
 Future<String?> _pickImageFromSource(BuildContext context) async {
   final picker = ImagePicker();
   ImageSource? source;
-  final List<String> log = [];
 
   if (!context.mounted) return null;
 
@@ -120,8 +100,6 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
 
   if (source == null) return null;
 
-  log.add('1) Bottom sheet cerrado, fuente elegida: $source');
-
   // Solo iOS: esperamos a que termine la animación de cierre del
   // bottom sheet antes de presentar el picker nativo.
   if (Platform.isIOS) {
@@ -132,20 +110,14 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
 
   XFile? file;
   try {
-    log.add('2) Llamando a picker.pickImage()...');
     file = await picker.pickImage(source: source!, imageQuality: 100);
-    log.add(
-        '3) picker.pickImage() retornó: ${file == null ? "NULL" : file.path}');
-  } catch (e, st) {
-    log.add('3) EXCEPCIÓN en picker.pickImage(): $e\n$st');
-    if (context.mounted) await _showDebugLog(context, log);
+  } catch (_) {
     return null;
   }
 
   if (!context.mounted) return null;
 
   if (file == null) {
-    await _showDebugLog(context, log);
     return null;
   }
 
@@ -159,7 +131,6 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
 
   CroppedFile? cropped;
   try {
-    log.add('4) Llamando a ImageCropper().cropImage()...');
     cropped = await ImageCropper().cropImage(
       sourcePath: file.path,
       compressFormat: ImageCompressFormat.jpg,
@@ -188,38 +159,28 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
         ),
       ],
     );
-    log.add(
-        '5) cropImage() retornó: ${cropped == null ? "NULL" : cropped.path}');
-  } catch (e, st) {
-    log.add('5) EXCEPCIÓN en cropImage(): $e\n$st');
-    if (context.mounted) await _showDebugLog(context, log);
+  } catch (_) {
     return null;
   }
 
   if (!context.mounted) return null;
 
   if (cropped == null) {
-    await _showDebugLog(context, log);
     return null;
   }
 
   // Solo iOS: persistimos la imagen en Documents. Android conserva el
   // comportamiento original (ruta temporal de image_cropper).
-  String? finalPath;
+  String finalPath;
   if (Platform.isIOS) {
     try {
       finalPath = await _persistImageIOS(cropped.path);
-      log.add('6) Imagen persistida en Documents: $finalPath');
-    } catch (e, st) {
-      log.add('6) EXCEPCIÓN al persistir imagen: $e\n$st');
+    } catch (_) {
       finalPath = cropped.path;
     }
   } else {
     finalPath = cropped.path;
   }
-
-  log.add('7) Ruta final devuelta al formulario: $finalPath');
-  if (context.mounted) await _showDebugLog(context, log);
 
   return finalPath;
 }
