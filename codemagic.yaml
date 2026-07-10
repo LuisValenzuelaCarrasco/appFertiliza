@@ -8,16 +8,17 @@ workflows:
       flutter: stable
       xcode: 26
       ios_signing:
-        certificates:
-          - distribution_cert_new
-        provisioning_profiles:
-          - Distribution Profile
+        distribution_type: app_store
+        bundle_identifier: com.fertiliza.app
       vars:
-        BUNDLE_ID: com.luisvalenzuela.fertiliza
+        BUNDLE_ID: com.fertiliza.app
     scripts:
       - name: Disable Swift Package Manager
         script: |
           flutter config --no-enable-swift-package-manager
+      - name: Set Bundle ID
+        script: |
+          xcode-project set-bundle-id "$BUNDLE_ID" $CM_BUILD_DIR/ios/Runner.xcodeproj
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles --verbose
