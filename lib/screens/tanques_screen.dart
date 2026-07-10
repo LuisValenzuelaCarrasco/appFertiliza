@@ -56,14 +56,6 @@ Future<String> _persistImageIOS(String tempPath) async {
   return savedFile.path;
 }
 
-void _debugSnack(BuildContext context, String msg) {
-  if (!Platform.isIOS || !context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-        duration: const Duration(seconds: 4), content: Text('[DEBUG] $msg')),
-  );
-}
-
 const CropAspectRatio _kCropAspectRatio =
     CropAspectRatio(ratioX: 16, ratioY: 9);
 
@@ -110,8 +102,6 @@ Future<CroppedFile?> _openCropper(String sourcePath) {
 Future<String?> _captureImage(BuildContext context, ImageSource source) async {
   final picker = ImagePicker();
 
-  _debugSnack(context, 'source elegido = $source');
-
   if (Platform.isIOS) {
     await Future.delayed(const Duration(milliseconds: 400));
   }
@@ -120,10 +110,7 @@ Future<String?> _captureImage(BuildContext context, ImageSource source) async {
   XFile? file;
   try {
     file = await picker.pickImage(source: source, imageQuality: 100);
-    _debugSnack(
-        context, 'pickImage -> ${file == null ? "NULL" : "OK: ${file.path}"}');
   } catch (e) {
-    _debugSnack(context, 'EXCEPCIÓN en pickImage: $e');
     return null;
   }
 
@@ -138,25 +125,19 @@ Future<String?> _captureImage(BuildContext context, ImageSource source) async {
   }
   if (!context.mounted) return null;
 
-  _debugSnack(context, 'Abriendo cropImage()...');
-
   CroppedFile? cropped;
   try {
     cropped = await _openCropper(file.path);
-    _debugSnack(context,
-        'cropImage (intento 1) -> ${cropped == null ? "NULL" : "OK: ${cropped.path}"}');
 
     if (cropped == null && Platform.isIOS) {
-      _debugSnack(context,
-          'cropImage devolvió NULL (probable conflicto de transición). Reintentando...');
+      // Reintento: en iOS el cropper puede devolver NULL sin excepción si
+      // se lo invoca justo mientras el picker nativo todavía está
+      // terminando su transición de cierre.
       await Future.delayed(const Duration(milliseconds: 700));
       if (!context.mounted) return null;
       cropped = await _openCropper(file.path);
-      _debugSnack(context,
-          'cropImage (intento 2) -> ${cropped == null ? "NULL" : "OK: ${cropped.path}"}');
     }
   } catch (e) {
-    _debugSnack(context, 'EXCEPCIÓN en cropImage: $e');
     return null;
   }
 
@@ -167,18 +148,13 @@ Future<String?> _captureImage(BuildContext context, ImageSource source) async {
   if (Platform.isIOS) {
     try {
       finalPath = await _persistImageIOS(cropped.path);
-      _debugSnack(context, 'Imagen persistida: $finalPath');
-      _debugSnack(context,
-          '¿existe el archivo persistido? ${await File(finalPath).exists()}');
     } catch (e) {
-      _debugSnack(context, 'EXCEPCIÓN al persistir: $e');
       finalPath = cropped.path;
     }
   } else {
     finalPath = cropped.path;
   }
 
-  _debugSnack(context, 'captureImage -> devolviendo: $finalPath');
   return finalPath;
 }
 
@@ -227,9 +203,10 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   );
 
   if (source == null) {
-    _debugSnack(context, 'source elegido = NULL (usuario cerró el chooser)');
     return null;
   }
+
+  if (!context.mounted) return null;
 
   return _captureImage(context, source!);
 }

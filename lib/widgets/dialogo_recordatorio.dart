@@ -91,6 +91,19 @@ class _DialogoRecordatorioState extends State<DialogoRecordatorio> {
 
     setState(() => _guardando = true);
 
+    // ---------------------------------------------------------------------
+    // FIX iOS: sin pedir el permiso explícitamente, awesome_notifications
+    // programa la notificación "en silencio" pero iOS nunca la entrega,
+    // porque nunca se le mostró al usuario el diálogo nativo de permiso.
+    // En Android esto no se notaba porque el permiso suele venir concedido
+    // por defecto. Pedimos el permiso ANTES de guardar/programar.
+    // ---------------------------------------------------------------------
+    final permitido = await NotificacionService.pedirPermisos(context);
+    if (!permitido) {
+      if (mounted) setState(() => _guardando = false);
+      return;
+    }
+
     final id = DateTime.now().millisecondsSinceEpoch % 100000;
     final cuerpo = _notasController.text.trim();
 
