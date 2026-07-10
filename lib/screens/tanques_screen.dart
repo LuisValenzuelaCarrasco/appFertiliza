@@ -59,6 +59,12 @@ Future<String> _persistImageIOS(String tempPath) async {
   return savedFile.path;
 }
 
+// Rango de aspecto compartido: mismo valor para Android e iOS, para que el
+// cropper abra siempre con la misma medida inicial (16:9) en ambas
+// plataformas. En ambas se deja sin bloquear (el usuario puede ajustarlo).
+const CropAspectRatio _kCropAspectRatio =
+    CropAspectRatio(ratioX: 16, ratioY: 9);
+
 Future<String?> _pickImageFromSource(BuildContext context) async {
   final picker = ImagePicker();
   ImageSource? source;
@@ -161,6 +167,9 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
       sourcePath: file.path,
       compressFormat: ImageCompressFormat.jpg,
       compressQuality: 100,
+      // Mismo rango de aspecto (16:9) para Android e iOS, para que el
+      // cropper arranque con la misma medida en las dos plataformas.
+      aspectRatio: _kCropAspectRatio,
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Ajustar imagen',
@@ -280,67 +289,24 @@ class TanquesScreen extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddTankSheet(context),
+        onPressed: () => _showAddDialog(context),
         icon: const Icon(Icons.add),
         label: const Text('Nuevo acuario'),
       ),
     );
   }
-}
 
-// ---------------------------------------------------------------------------
-// NUEVO: funciones de nivel superior para abrir los sheets de agregar/editar.
-// Se sacaron de los widgets para poder invocarlas de nuevo con datos "draft"
-// después de cerrarlas y reabrirlas (ver el workaround de iOS más abajo).
-// ---------------------------------------------------------------------------
-void _showAddTankSheet(
-  BuildContext parentContext, {
-  String? initialName,
-  String? initialVolume,
-  DateTime? initialDate,
-  String? initialImagePath,
-}) {
-  showModalBottomSheet(
-    context: parentContext,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (_) => _AddTankSheet(
-      parentContext: parentContext,
-      initialName: initialName,
-      initialVolume: initialVolume,
-      initialDate: initialDate,
-      initialImagePath: initialImagePath,
-    ),
-  );
-}
-
-void _showEditTankSheet(
-  BuildContext parentContext,
-  TankModel tank, {
-  String? initialName,
-  String? initialVolume,
-  DateTime? initialDate,
-  String? initialImagePath,
-}) {
-  showModalBottomSheet(
-    context: parentContext,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (_) => _EditTankSheet(
-      parentContext: parentContext,
-      tank: tank,
-      initialName: initialName,
-      initialVolume: initialVolume,
-      initialDate: initialDate,
-      initialImagePath: initialImagePath,
-    ),
-  );
+  void _showAddDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => const _AddTankSheet(),
+    );
+  }
 }
 
 class _TankCard extends StatefulWidget {
@@ -360,7 +326,15 @@ class _TankCardState extends State<_TankCard> {
   }
 
   void _showEditSheet() {
-    _showEditTankSheet(context, widget.tank);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _EditTankSheet(tank: widget.tank),
+    );
   }
 
   @override
@@ -476,39 +450,17 @@ class _TankCardState extends State<_TankCard> {
 }
 
 class _AddTankSheet extends StatefulWidget {
-  // NUEVO: contexto de la pantalla padre (TanquesScreen), que sigue montado
-  // aunque este sheet se cierre. Lo necesitamos para el workaround de iOS.
-  final BuildContext parentContext;
-  final String? initialName;
-  final String? initialVolume;
-  final DateTime? initialDate;
-  final String? initialImagePath;
-
-  const _AddTankSheet({
-    required this.parentContext,
-    this.initialName,
-    this.initialVolume,
-    this.initialDate,
-    this.initialImagePath,
-  });
+  const _AddTankSheet();
 
   @override
   State<_AddTankSheet> createState() => _AddTankSheetState();
 }
 
 class _AddTankSheetState extends State<_AddTankSheet> {
-  late final TextEditingController _nameCtrl =
-      TextEditingController(text: widget.initialName ?? '');
-  late final TextEditingController _volCtrl =
-      TextEditingController(text: widget.initialVolume ?? '');
-  late DateTime _setupDate = widget.initialDate ?? DateTime.now();
+  final _nameCtrl = TextEditingController();
+  final _volCtrl = TextEditingController();
+  DateTime _setupDate = DateTime.now();
   String? _imagePath;
-
-  @override
-  void initState() {
-    super.initState();
-    _imagePath = widget.initialImagePath;
-  }
 
   @override
   void dispose() {
@@ -517,51 +469,7 @@ class _AddTankSheetState extends State<_AddTankSheet> {
     super.dispose();
   }
 
-  // -------------------------------------------------------------------------
-  // NUEVO (solo iOS): iOS 26 tiene un bug conocido (flutter/flutter#32896,
-  // reaparecido en #173453) donde, al volver de la cámara/galería nativa,
-  // el sistema dispara un Navigator.pop() real -no solo un toque "fantasma"
-  // en la barrera- que cierra este bottom sheet mientras _pickImageFromSource
-  // sigue esperando el cropper. Ese pop no se puede bloquear con
-  // isDismissible/enableDrag ni con PopScope porque no pasa por un gesto
-  // reconocible por Flutter.
-  //
-  // La única forma confiable de neutralizarlo es no dejar ningún sheet
-  // abierto que el pop fantasma pueda cerrar: cerramos este formulario
-  // ANTES de abrir la cámara (guardando lo que el usuario ya escribió),
-  // hacemos todo el flujo de foto sobre TanquesScreen (que no tiene nada
-  // debajo que perder), y al terminar reabrimos el formulario con los
-  // datos guardados + la foto nueva.
-  //
-  // Android no se toca: sigue haciendo todo dentro del mismo sheet.
-  // -------------------------------------------------------------------------
   Future<void> _pickImage() async {
-    if (Platform.isIOS) {
-      final draftName = _nameCtrl.text;
-      final draftVolume = _volCtrl.text;
-      final draftDate = _setupDate;
-      final draftImagePath = _imagePath;
-      final parentContext = widget.parentContext;
-
-      Navigator.of(context).pop();
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      if (!parentContext.mounted) return;
-
-      final path = await _pickImageFromSource(parentContext);
-
-      if (!parentContext.mounted) return;
-
-      _showAddTankSheet(
-        parentContext,
-        initialName: draftName,
-        initialVolume: draftVolume,
-        initialDate: draftDate,
-        initialImagePath: path ?? draftImagePath,
-      );
-      return;
-    }
-
     final path = await _pickImageFromSource(context);
     if (path != null) setState(() => _imagePath = path);
   }
@@ -658,21 +566,8 @@ class _AddTankSheetState extends State<_AddTankSheet> {
 }
 
 class _EditTankSheet extends StatefulWidget {
-  final BuildContext parentContext;
   final TankModel tank;
-  final String? initialName;
-  final String? initialVolume;
-  final DateTime? initialDate;
-  final String? initialImagePath;
-
-  const _EditTankSheet({
-    required this.parentContext,
-    required this.tank,
-    this.initialName,
-    this.initialVolume,
-    this.initialDate,
-    this.initialImagePath,
-  });
+  const _EditTankSheet({required this.tank});
 
   @override
   State<_EditTankSheet> createState() => _EditTankSheetState();
@@ -687,12 +582,11 @@ class _EditTankSheetState extends State<_EditTankSheet> {
   @override
   void initState() {
     super.initState();
-    _nameCtrl =
-        TextEditingController(text: widget.initialName ?? widget.tank.name);
-    _volCtrl = TextEditingController(
-        text: widget.initialVolume ?? widget.tank.volume.toStringAsFixed(0));
-    _setupDate = widget.initialDate ?? widget.tank.setupDate;
-    _imagePath = widget.initialImagePath ?? widget.tank.imagePath;
+    _nameCtrl = TextEditingController(text: widget.tank.name);
+    _volCtrl =
+        TextEditingController(text: widget.tank.volume.toStringAsFixed(0));
+    _setupDate = widget.tank.setupDate;
+    _imagePath = widget.tank.imagePath;
   }
 
   @override
@@ -702,53 +596,26 @@ class _EditTankSheetState extends State<_EditTankSheet> {
     super.dispose();
   }
 
-  // Mismo workaround que en _AddTankSheet: en iOS cerramos el sheet antes
-  // de abrir la cámara para que el Navigator.pop() fantasma de iOS 26 no
-  // tenga nada que cerrar, y lo reabrimos después con los datos guardados.
   Future<void> _pickImage() async {
-    if (Platform.isIOS) {
-      final draftName = _nameCtrl.text;
-      final draftVolume = _volCtrl.text;
-      final draftDate = _setupDate;
-      final draftImagePath = _imagePath;
-      final tank = widget.tank;
-      final parentContext = widget.parentContext;
-
-      Navigator.of(context).pop();
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      if (!parentContext.mounted) return;
-
-      final path = await _pickImageFromSource(parentContext);
-
-      if (!parentContext.mounted) return;
-
-      // Limpiamos la foto anterior copiada en Documents si se reemplazó.
-      if (path != null && draftImagePath != null && draftImagePath != path) {
-        try {
-          final oldFile = File(draftImagePath);
-          if (await oldFile.exists()) {
-            await oldFile.delete();
-          }
-        } catch (_) {
-          // Si no se puede borrar, no interrumpimos el flujo del usuario.
-        }
-      }
-
-      _showEditTankSheet(
-        parentContext,
-        tank,
-        initialName: draftName,
-        initialVolume: draftVolume,
-        initialDate: draftDate,
-        initialImagePath: path ?? draftImagePath,
-      );
-      return;
-    }
-
     final path = await _pickImageFromSource(context);
     if (path == null) return;
+
+    final oldPath = _imagePath;
     setState(() => _imagePath = path);
+
+    // Solo iOS: limpiamos la foto anterior que quedó copiada en Documents
+    // para no acumular archivos huérfanos. Android no se ve afectado
+    // porque nunca copiábamos nada ahí.
+    if (Platform.isIOS && oldPath != null && oldPath != path) {
+      try {
+        final oldFile = File(oldPath);
+        if (await oldFile.exists()) {
+          await oldFile.delete();
+        }
+      } catch (_) {
+        // Si no se puede borrar, no interrumpimos el flujo del usuario.
+      }
+    }
   }
 
   Future<void> _pickDate() async {
