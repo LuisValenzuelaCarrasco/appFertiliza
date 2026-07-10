@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -39,6 +41,22 @@ class _FullScreenImage extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// NUEVO (solo iOS): copia la imagen recortada desde el directorio temporal
+// hacia el directorio de Documents de la app, que sí persiste entre
+// reinicios. En iOS el directorio temporal puede ser limpiado por el
+// sistema en cualquier momento, por eso la foto "desaparecía".
+// Android no se toca: sigue usando la ruta temporal tal cual la entregaba
+// image_cropper.
+// ---------------------------------------------------------------------------
+Future<String> _persistImageIOS(String tempPath) async {
+  final docsDir = await getApplicationDocumentsDirectory();
+  final ext = p.extension(tempPath).isNotEmpty ? p.extension(tempPath) : '.jpg';
+  final fileName = '${const Uuid().v4()}$ext';
+  final savedFile = await File(tempPath).copy(p.join(docsDir.path, fileName));
+  return savedFile.path;
 }
 
 Future<String?> _pickImageFromSource(BuildContext context) async {
@@ -81,10 +99,28 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   );
 
   if (source == null) return null;
+
+  // Solo iOS: esperamos a que termine la animación de cierre del
+  // bottom sheet antes de presentar el picker nativo. En iOS, si se
+  // presenta un nuevo controlador (PHPickerViewController) mientras el
+  // bottom sheet todavía se está cerrando, la llamada falla en
+  // silencio: la galería no abre nada al elegir una foto, sin error.
+  // Android no tiene este problema y no se toca.
+  if (Platform.isIOS) {
+    await Future.delayed(const Duration(milliseconds: 400));
+  }
+
   if (!context.mounted) return null;
 
   final file = await picker.pickImage(source: source!, imageQuality: 100);
   if (file == null) return null;
+
+  // Mismo motivo: dar tiempo a que el picker termine de cerrarse antes
+  // de presentar el cropper nativo en iOS.
+  if (Platform.isIOS) {
+    await Future.delayed(const Duration(milliseconds: 400));
+  }
+
   if (!context.mounted) return null;
 
   final cropped = await ImageCropper().cropImage(
@@ -116,7 +152,22 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
     ],
   );
 
-  return cropped?.path;
+  if (cropped == null) return null;
+
+  // Solo iOS: persistimos la imagen en Documents. Android conserva el
+  // comportamiento original (ruta temporal de image_cropper).
+  if (Platform.isIOS) {
+    if (!context.mounted) return null;
+    try {
+      return await _persistImageIOS(cropped.path);
+    } catch (_) {
+      // Si falla la copia por cualquier motivo, devolvemos al menos la
+      // ruta temporal en vez de perder la selección del usuario.
+      return cropped.path;
+    }
+  }
+
+  return cropped.path;
 }
 
 class TanquesScreen extends StatelessWidget {
@@ -464,7 +515,24 @@ class _EditTankSheetState extends State<_EditTankSheet> {
 
   Future<void> _pickImage() async {
     final path = await _pickImageFromSource(context);
-    if (path != null) setState(() => _imagePath = path);
+    if (path == null) return;
+
+    final oldPath = _imagePath;
+    setState(() => _imagePath = path);
+
+    // Solo iOS: limpiamos la foto anterior que quedó copiada en Documents
+    // para no acumular archivos huérfanos. Android no se ve afectado
+    // porque nunca copiábamos nada ahí.
+    if (Platform.isIOS && oldPath != null && oldPath != path) {
+      try {
+        final oldFile = File(oldPath);
+        if (await oldFile.exists()) {
+          await oldFile.delete();
+        }
+      } catch (_) {
+        // Si no se puede borrar, no interrumpimos el flujo del usuario.
+      }
+    }
   }
 
   Future<void> _pickDate() async {
