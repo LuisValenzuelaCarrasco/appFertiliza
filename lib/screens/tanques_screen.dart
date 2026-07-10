@@ -59,9 +59,29 @@ Future<String> _persistImageIOS(String tempPath) async {
   return savedFile.path;
 }
 
+Future<void> _showDebugLog(BuildContext context, List<String> log) async {
+  if (!context.mounted) return;
+  await showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('DEBUG: registro del flujo de foto'),
+      content: SingleChildScrollView(
+        child: Text(log.join('\n\n')),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    ),
+  );
+}
+
 Future<String?> _pickImageFromSource(BuildContext context) async {
   final picker = ImagePicker();
   ImageSource? source;
+  final List<String> log = [];
 
   if (!context.mounted) return null;
 
@@ -100,20 +120,34 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
 
   if (source == null) return null;
 
+  log.add('1) Bottom sheet cerrado, fuente elegida: $source');
+
   // Solo iOS: esperamos a que termine la animación de cierre del
-  // bottom sheet antes de presentar el picker nativo. En iOS, si se
-  // presenta un nuevo controlador (PHPickerViewController) mientras el
-  // bottom sheet todavía se está cerrando, la llamada falla en
-  // silencio: la galería no abre nada al elegir una foto, sin error.
-  // Android no tiene este problema y no se toca.
+  // bottom sheet antes de presentar el picker nativo.
   if (Platform.isIOS) {
     await Future.delayed(const Duration(milliseconds: 400));
   }
 
   if (!context.mounted) return null;
 
-  final file = await picker.pickImage(source: source!, imageQuality: 100);
-  if (file == null) return null;
+  XFile? file;
+  try {
+    log.add('2) Llamando a picker.pickImage()...');
+    file = await picker.pickImage(source: source!, imageQuality: 100);
+    log.add(
+        '3) picker.pickImage() retornó: ${file == null ? "NULL" : file.path}');
+  } catch (e, st) {
+    log.add('3) EXCEPCIÓN en picker.pickImage(): $e\n$st');
+    if (context.mounted) await _showDebugLog(context, log);
+    return null;
+  }
+
+  if (!context.mounted) return null;
+
+  if (file == null) {
+    await _showDebugLog(context, log);
+    return null;
+  }
 
   // Mismo motivo: dar tiempo a que el picker termine de cerrarse antes
   // de presentar el cropper nativo en iOS.
@@ -123,51 +157,71 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
 
   if (!context.mounted) return null;
 
-  final cropped = await ImageCropper().cropImage(
-    sourcePath: file.path,
-    compressFormat: ImageCompressFormat.jpg,
-    compressQuality: 100,
-    uiSettings: [
-      AndroidUiSettings(
-        toolbarTitle: 'Ajustar imagen',
-        toolbarColor: const Color(0xFF1B5E20),
-        toolbarWidgetColor: Colors.white,
-        activeControlsWidgetColor: const Color(0xFF4CAF50),
-        statusBarColor: const Color(0xFF1B5E20),
-        backgroundColor: Colors.black,
-        initAspectRatio: CropAspectRatioPreset.ratio16x9,
-        lockAspectRatio: false,
-        hideBottomControls: true,
-      ),
-      IOSUiSettings(
-        title: 'Ajustar imagen',
-        aspectRatioLockEnabled: false,
-        resetAspectRatioEnabled: false,
-        aspectRatioPickerButtonHidden: true,
-        rotateButtonsHidden: true,
-        rotateClockwiseButtonHidden: true,
-        cancelButtonTitle: 'Cancelar',
-        doneButtonTitle: 'Listo',
-      ),
-    ],
-  );
+  CroppedFile? cropped;
+  try {
+    log.add('4) Llamando a ImageCropper().cropImage()...');
+    cropped = await ImageCropper().cropImage(
+      sourcePath: file.path,
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 100,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Ajustar imagen',
+          toolbarColor: const Color(0xFF1B5E20),
+          toolbarWidgetColor: Colors.white,
+          activeControlsWidgetColor: const Color(0xFF4CAF50),
+          statusBarColor: const Color(0xFF1B5E20),
+          backgroundColor: Colors.black,
+          initAspectRatio: CropAspectRatioPreset.ratio16x9,
+          lockAspectRatio: false,
+          hideBottomControls: true,
+        ),
+        IOSUiSettings(
+          title: 'Ajustar imagen',
+          aspectRatioLockEnabled: false,
+          resetAspectRatioEnabled: false,
+          aspectRatioPickerButtonHidden: true,
+          rotateButtonsHidden: true,
+          rotateClockwiseButtonHidden: true,
+          cancelButtonTitle: 'Cancelar',
+          doneButtonTitle: 'Listo',
+        ),
+      ],
+    );
+    log.add(
+        '5) cropImage() retornó: ${cropped == null ? "NULL" : cropped.path}');
+  } catch (e, st) {
+    log.add('5) EXCEPCIÓN en cropImage(): $e\n$st');
+    if (context.mounted) await _showDebugLog(context, log);
+    return null;
+  }
 
-  if (cropped == null) return null;
+  if (!context.mounted) return null;
+
+  if (cropped == null) {
+    await _showDebugLog(context, log);
+    return null;
+  }
 
   // Solo iOS: persistimos la imagen en Documents. Android conserva el
   // comportamiento original (ruta temporal de image_cropper).
+  String? finalPath;
   if (Platform.isIOS) {
-    if (!context.mounted) return null;
     try {
-      return await _persistImageIOS(cropped.path);
-    } catch (_) {
-      // Si falla la copia por cualquier motivo, devolvemos al menos la
-      // ruta temporal en vez de perder la selección del usuario.
-      return cropped.path;
+      finalPath = await _persistImageIOS(cropped.path);
+      log.add('6) Imagen persistida en Documents: $finalPath');
+    } catch (e, st) {
+      log.add('6) EXCEPCIÓN al persistir imagen: $e\n$st');
+      finalPath = cropped.path;
     }
+  } else {
+    finalPath = cropped.path;
   }
 
-  return cropped.path;
+  log.add('7) Ruta final devuelta al formulario: $finalPath');
+  if (context.mounted) await _showDebugLog(context, log);
+
+  return finalPath;
 }
 
 class TanquesScreen extends StatelessWidget {
