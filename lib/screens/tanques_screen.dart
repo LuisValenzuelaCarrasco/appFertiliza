@@ -111,7 +111,24 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   XFile? file;
   try {
     file = await picker.pickImage(source: source!, imageQuality: 100);
-  } catch (_) {
+    if (Platform.isIOS && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(
+              '[DEBUG] pickImage -> ${file == null ? "NULL" : "OK: ${file.path}"}'),
+        ),
+      );
+    }
+  } catch (e) {
+    if (Platform.isIOS && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          content: Text('[DEBUG] EXCEPCIÓN en pickImage: $e'),
+        ),
+      );
+    }
     return null;
   }
 
@@ -128,6 +145,15 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   }
 
   if (!context.mounted) return null;
+
+  if (Platform.isIOS && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        duration: Duration(seconds: 2),
+        content: Text('[DEBUG] Abriendo cropImage()...'),
+      ),
+    );
+  }
 
   CroppedFile? cropped;
   try {
@@ -159,7 +185,24 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
         ),
       ],
     );
-  } catch (_) {
+    if (Platform.isIOS && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text(
+              '[DEBUG] cropImage -> ${cropped == null ? "NULL" : "OK: ${cropped.path}"}'),
+        ),
+      );
+    }
+  } catch (e) {
+    if (Platform.isIOS && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          content: Text('[DEBUG] EXCEPCIÓN en cropImage: $e'),
+        ),
+      );
+    }
     return null;
   }
 
@@ -175,7 +218,23 @@ Future<String?> _pickImageFromSource(BuildContext context) async {
   if (Platform.isIOS) {
     try {
       finalPath = await _persistImageIOS(cropped.path);
-    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 3),
+            content: Text('[DEBUG] Imagen persistida: $finalPath'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 4),
+            content: Text('[DEBUG] EXCEPCIÓN al persistir: $e'),
+          ),
+        );
+      }
       finalPath = cropped.path;
     }
   } else {
