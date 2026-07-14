@@ -1,26 +1,7 @@
 // widgets/producto_selector.dart
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/producto.dart';
-
-/// Teclado numérico decimal que funciona igual en Android que antes,
-/// pero en iOS usa teclado de texto (que sí muestra el punto/coma),
-/// ya que en varias versiones de Flutter el teclado numérico decimal
-/// nativo de iOS no renderiza la tecla de separador decimal.
-TextInputType _tecladoDecimal() {
-  if (!kIsWeb && Platform.isIOS) {
-    return TextInputType.text;
-  }
-  return const TextInputType.numberWithOptions(decimal: true);
-}
-
-/// Normaliza un texto ingresado (con coma o punto) a un double válido.
-double _parseDecimal(String texto) {
-  if (texto.isEmpty) return 0;
-  return double.tryParse(texto.replaceAll(',', '.')) ?? 0;
-}
 
 class ProductoSelector extends StatelessWidget {
   final Producto producto;
@@ -78,9 +59,10 @@ class ProductoSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _hexToColor(producto.color);
     final cs = Theme.of(context).colorScheme;
-    final nivelActual = _parseDecimal(controller?.text ?? '0');
+    final nivelActual = double.tryParse(controller?.text ?? '0') ?? 0;
 
-    final objetivoIngresado = _parseDecimal(objetivoController?.text ?? '');
+    final objetivoIngresado =
+        double.tryParse(objetivoController?.text ?? '') ?? 0;
     final objetivoFinal =
         objetivoIngresado > 0 ? objetivoIngresado : producto.objetivoMgL;
 
@@ -160,6 +142,7 @@ class ProductoSelector extends StatelessWidget {
             ),
           ),
 
+          // ── Selector Con/Sin testeo (solo los 4 productos con modalidad) ──
           // ── Selector Con/Sin testeo (solo los 4 productos con modalidad) ──
           if (seleccionado && esProductoConModalidad) ...[
             Divider(
@@ -241,10 +224,11 @@ class ProductoSelector extends StatelessWidget {
                         const SizedBox(height: 6),
                         TextField(
                           controller: controller,
-                          keyboardType: _tecladoDecimal(),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
-                                RegExp(r'^\d*[.,]?\d*')),
+                                RegExp(r'^\d*\.?\d*')),
                           ],
                           onChanged: (_) => onChanged(),
                           style: const TextStyle(
@@ -278,10 +262,11 @@ class ProductoSelector extends StatelessWidget {
                         const SizedBox(height: 6),
                         TextField(
                           controller: objetivoController,
-                          keyboardType: _tecladoDecimal(),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
-                                RegExp(r'^\d*[.,]?\d*')),
+                                RegExp(r'^\d*\.?\d*')),
                           ],
                           onChanged: (_) => onChanged(),
                           style: const TextStyle(
