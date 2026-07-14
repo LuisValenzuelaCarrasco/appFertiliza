@@ -9,6 +9,14 @@ import 'package:rutina_fertiliza/services/historial_service.dart';
 import 'package:rutina_fertiliza/services/historial_notifier.dart';
 import '../models/tank_model.dart';
 
+/// Convierte un texto ingresado por el usuario (que puede traer coma o
+/// punto como separador decimal, según el teclado/idioma del dispositivo)
+/// a un double válido. Si el texto está vacío o no es parseable, retorna 0.
+double _parseDecimal(String texto) {
+  if (texto.isEmpty) return 0;
+  return double.tryParse(texto.replaceAll(',', '.')) ?? 0;
+}
+
 class CalculadoraScreen extends StatefulWidget {
   final TankModel tank;
 
@@ -114,8 +122,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   }
 
   double _objetivoEfectivo(Producto p) {
-    final ingresado =
-        double.tryParse(_objetivoControllers[p.id]?.text ?? '') ?? 0;
+    final ingresado = _parseDecimal(_objetivoControllers[p.id]?.text ?? '');
     return ingresado > 0 ? ingresado : p.objetivoMgL;
   }
 
@@ -136,7 +143,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
   Future<void> _calcular() async {
     FocusScope.of(context).unfocus();
 
-    final litros = double.tryParse(_litrosController.text) ?? 0;
+    final litros = _parseDecimal(_litrosController.text);
 
     if (litros <= 0) {
       _mostrarError('Ingresa una cantidad válida de litros');
@@ -165,7 +172,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
     for (final p in productosTesteables
         .where((p) => _productosSeleccionados.contains(p.id))) {
       final textoNivel = _nivelControllers[p.id]?.text ?? '';
-      final nivelActual = double.tryParse(textoNivel) ?? 0;
+      final nivelActual = _parseDecimal(textoNivel);
       final objetivo = _objetivoEfectivo(p);
 
       final sinTesteo = _productosConModalidad.contains(p.id) &&
@@ -221,7 +228,7 @@ class _CalculadoraScreenState extends State<CalculadoraScreen> {
       _nivelesSnapshot = {
         for (final p in productosTesteables)
           if (_productosSeleccionados.contains(p.id))
-            p.id: double.tryParse(_nivelControllers[p.id]?.text ?? '0') ?? 0,
+            p.id: _parseDecimal(_nivelControllers[p.id]?.text ?? '0'),
       };
       _modalidadesSnapshot = Map.from(_modalidadesSeleccionadas);
       _litrosCalculados = litros;
